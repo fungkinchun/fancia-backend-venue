@@ -1,9 +1,9 @@
 package com.fancia.backend.venue.core.controller
 
-import com.fancia.backend.venue.core.service.VenuePostService
 import com.fancia.backend.shared.common.post.core.dto.CreatePostBody
 import com.fancia.backend.shared.common.post.core.dto.PostResponse
 import com.fancia.backend.shared.common.post.core.dto.UpdatePostRequest
+import com.fancia.backend.venue.core.service.VenuePostService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponse

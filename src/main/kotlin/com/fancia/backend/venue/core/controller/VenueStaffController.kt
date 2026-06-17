@@ -1,10 +1,10 @@
 package com.fancia.backend.venue.core.controller
 
-import com.fancia.backend.venue.core.service.VenueStaffService
 import com.fancia.backend.shared.venue.core.dto.CreateVenueStaffRequest
 import com.fancia.backend.shared.venue.core.dto.UpdateVenueStaffRequest
 import com.fancia.backend.shared.venue.core.dto.VenueStaffResponse
 import com.fancia.backend.shared.venue.core.enums.VenueRole
+import com.fancia.backend.venue.core.service.VenueStaffService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponse

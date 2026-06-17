@@ -1,7 +1,7 @@
 package com.fancia.backend.venue.core.controller
 
-import com.fancia.backend.venue.config.ApplicationProperties
 import com.fancia.backend.shared.common.core.exception.DomainException
+import com.fancia.backend.venue.config.ApplicationProperties
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ProblemDetail

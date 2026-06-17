@@ -1,7 +1,7 @@
 package com.fancia.backend.venue
 
-import com.fancia.backend.venue.core.repository.VenueRepository
 import com.fancia.backend.shared.common.comment.core.dto.CommentResponse
+import com.fancia.backend.venue.core.repository.VenueRepository
 import com.github.tomakehurst.wiremock.client.WireMock.*
 import io.kotest.core.spec.style.FunSpec
 import org.hamcrest.CoreMatchers.`is`
@@ -61,7 +61,6 @@ class VenueCommentControllerIntegrationTest(
                         )
                 )
         )
-
         val responseBody = mockMvc
             .post("/api/venues") {
                 with(jwt().jwt { it.claim("userId", userId) })

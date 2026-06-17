@@ -1,8 +1,8 @@
 package com.fancia.backend.venue.core.repository
 
-import com.fancia.backend.venue.core.entity.VenueStaff
 import com.fancia.backend.shared.venue.core.enums.StaffStatus
 import com.fancia.backend.shared.venue.core.enums.VenueRole
+import com.fancia.backend.venue.core.entity.VenueStaff
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository

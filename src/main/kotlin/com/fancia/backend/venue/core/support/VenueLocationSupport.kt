@@ -1,7 +1,7 @@
 package com.fancia.backend.venue.core.support
 
-import com.fancia.backend.venue.core.entity.Venue
 import com.fancia.backend.shared.common.location.core.dto.LocationDto
+import com.fancia.backend.venue.core.entity.Venue
 
 object VenueLocationSupport {
     fun apply(venue: Venue, location: LocationDto?) {

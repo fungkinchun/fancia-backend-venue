@@ -1,9 +1,9 @@
 package com.fancia.backend.venue
 
-import com.fancia.backend.venue.core.repository.VenueRepository
 import com.fancia.backend.shared.common.post.core.dto.PostMediaResponse
 import com.fancia.backend.shared.common.post.core.dto.PostResponse
 import com.fancia.backend.shared.common.post.core.enums.PostMediaType
+import com.fancia.backend.venue.core.repository.VenueRepository
 import com.github.tomakehurst.wiremock.client.WireMock.*
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -63,7 +63,6 @@ class VenuePostControllerIntegrationTest(
                         )
                 )
         )
-
         val responseBody = mockMvc
             .post("/api/venues") {
                 with(jwt().jwt { it.claim("userId", userId) })
@@ -93,7 +92,6 @@ class VenuePostControllerIntegrationTest(
     test("should forward featured post creation to common-internal with featured and pinned fields") {
         val userId = UUID.randomUUID()
         val venueId = createVenueViaApi(userId)
-
         val postId = UUID.randomUUID()
         val commonResponse = PostResponse(
             id = postId,
@@ -125,7 +123,6 @@ class VenuePostControllerIntegrationTest(
                         .withBody(jsonMapper.writeValueAsString(commonResponse))
                 )
         )
-
         val requestBody = mapOf(
             "body" to null,
             "media" to listOf(
@@ -141,7 +138,6 @@ class VenuePostControllerIntegrationTest(
             "featured" to true,
             "pinned" to false,
         )
-
         val responseBody = mockMvc
             .post("/api/venues/$venueId/posts") {
                 with(jwt().jwt { it.claim("userId", userId) })
@@ -161,7 +157,6 @@ class VenuePostControllerIntegrationTest(
             .andReturn()
             .response
             .contentAsString
-
         val response = jsonMapper.readValue(responseBody, object : TypeReference<PostResponse>() {})
         response.featured shouldBe true
         response.pinned shouldBe false
@@ -174,7 +169,6 @@ class VenuePostControllerIntegrationTest(
                 .withRequestBody(matchingJsonPath("$.pinned", equalTo("false")))
                 .withRequestBody(matchingJsonPath("$.media.length()", equalTo("2"))),
         )
-
         val forwardedBody = findAll(postRequestedFor(urlPathEqualTo("/internal/posts"))).single().bodyAsString
         val forwardedJson = jsonMapper.readTree(forwardedBody)
         forwardedJson.has("isFeatured") shouldBe false

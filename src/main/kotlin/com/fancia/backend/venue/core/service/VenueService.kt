@@ -1,17 +1,18 @@
 package com.fancia.backend.venue.core.service
 
-import com.fancia.backend.venue.core.entity.Venue
-import com.fancia.backend.venue.core.repository.VenueRepository
-import com.fancia.backend.venue.core.support.VenueLocationSupport
-import com.fancia.backend.venue.external.CommonServiceClient
-import com.fancia.backend.venue.mapper.VenueMapper
 import com.fancia.backend.shared.common.core.exception.InvalidAuthenticationException
 import com.fancia.backend.shared.common.social.core.entity.Link
+import com.fancia.backend.shared.common.tag.core.dto.TagItemRequest
 import com.fancia.backend.shared.venue.core.dto.CreateVenueRequest
 import com.fancia.backend.shared.venue.core.dto.UpdateVenueRequest
 import com.fancia.backend.shared.venue.core.dto.VenueResponse
 import com.fancia.backend.shared.venue.core.exception.VenueNotFoundException
 import com.fancia.backend.shared.venue.core.exception.VenueStaffNotFoundException
+import com.fancia.backend.venue.core.entity.Venue
+import com.fancia.backend.venue.core.repository.VenueRepository
+import com.fancia.backend.venue.core.support.VenueLocationSupport
+import com.fancia.backend.venue.external.CommonServiceClient
+import com.fancia.backend.venue.mapper.VenueMapper
 import jakarta.validation.Valid
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
@@ -25,7 +26,7 @@ class VenueService(
     private val venueRepository: VenueRepository,
     private val venueMapper: VenueMapper,
     private val venueStaffService: VenueStaffService,
-    private val commonServiceClient: CommonServiceClient
+    private val commonServiceClient: CommonServiceClient,
 ) {
     fun findById(id: UUID): VenueResponse {
         return venueRepository.findById(id)
@@ -47,7 +48,6 @@ class VenueService(
             return venueRepository.findNearby(latitude, longitude, radiusMeters, pageable)
                 .map(venueMapper::toDto)
         }
-
         val venues = when {
             name.isNullOrBlank() && description.isNullOrBlank() && tags.isNullOrBlank() ->
                 venueRepository.findAll(pageable)
@@ -74,9 +74,7 @@ class VenueService(
             ?: throw InvalidAuthenticationException()
         venueMapper.toBean(request).let { it ->
             it.createdBy = currentUserId
-            val response = commonServiceClient.getTags(request.tags)
-            it.tags.clear()
-            it.tags.addAll(response.map { t -> t.name })
+            applyTags(it.tags, request.tags)
             it.links.clear()
             it.links.addAll(request.links.map { link -> Link(type = link.type, url = link.url) })
             VenueLocationSupport.apply(it, request.location)
@@ -92,6 +90,7 @@ class VenueService(
         val venue = venueRepository.findByIdAndCreatedBy(id, currentUserId)
             ?: throw VenueStaffNotFoundException(id, currentUserId)
         venueMapper.toBean(request, venue).let {
+            applyTags(it.tags, request.tags)
             it.links.clear()
             it.links.addAll(request.links.map { link -> Link(type = link.type, url = link.url) })
             VenueLocationSupport.apply(it, request.location)
@@ -100,14 +99,25 @@ class VenueService(
     }
 
     @Transactional
-    fun removeTagFromAllVenues(tagName: String) {
-        if (tagName.isBlank()) return
-        val venuesWithTag = venueRepository.findByTagsContaining(tagName)
+    fun removeTagFromAllVenues(tagId: UUID) {
+        val venuesWithTag = venueRepository.findByTagId(tagId)
         for (venue in venuesWithTag) {
-            venue.tags.remove(tagName)
+            venue.tags.remove(tagId)
         }
         if (venuesWithTag.isNotEmpty()) {
             venueRepository.saveAll(venuesWithTag)
         }
+    }
+
+    private fun applyTags(tags: MutableSet<UUID>, requestTags: Set<TagItemRequest>) {
+        val resolved = requestTags
+            .groupBy { it.type }
+            .flatMap { (type, items) ->
+                val names = items.map { it.name }.toSet()
+                if (names.isEmpty()) emptyList() else commonServiceClient.getTags(names, type).content
+            }
+            .mapNotNull { it.id }
+        tags.clear()
+        tags.addAll(resolved)
     }
 }

@@ -1,8 +1,5 @@
 package com.fancia.backend.venue.core.service
 
-import com.fancia.backend.venue.core.repository.VenueRepository
-import com.fancia.backend.venue.core.repository.VenueStaffRepository
-import com.fancia.backend.venue.external.CommonInternalClient
 import com.fancia.backend.shared.common.core.exception.InvalidAuthenticationException
 import com.fancia.backend.shared.common.post.core.dto.CreatePostBody
 import com.fancia.backend.shared.common.post.core.dto.CreatePostRequest
@@ -11,6 +8,9 @@ import com.fancia.backend.shared.common.post.core.dto.UpdatePostRequest
 import com.fancia.backend.shared.common.post.core.exception.PostAccessDeniedException
 import com.fancia.backend.shared.venue.core.enums.StaffStatus
 import com.fancia.backend.shared.venue.core.exception.VenueNotFoundException
+import com.fancia.backend.venue.core.repository.VenueRepository
+import com.fancia.backend.venue.core.repository.VenueStaffRepository
+import com.fancia.backend.venue.external.CommonInternalClient
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable

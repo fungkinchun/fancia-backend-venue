@@ -1,11 +1,11 @@
 package com.fancia.backend.venue.external
 
-import com.fancia.backend.venue.config.FeignConfig
 import com.fancia.backend.shared.common.comment.core.dto.CommentResponse
 import com.fancia.backend.shared.common.comment.core.dto.CreateCommentRequest
 import com.fancia.backend.shared.common.post.core.dto.CreatePostRequest
 import com.fancia.backend.shared.common.post.core.dto.PostResponse
 import com.fancia.backend.shared.common.post.core.dto.UpdatePostRequest
+import com.fancia.backend.venue.config.FeignConfig
 import org.springframework.cloud.openfeign.FeignClient
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable

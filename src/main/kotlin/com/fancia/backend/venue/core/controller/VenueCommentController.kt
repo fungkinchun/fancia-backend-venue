@@ -1,8 +1,8 @@
 package com.fancia.backend.venue.core.controller
 
-import com.fancia.backend.venue.core.service.VenueCommentService
 import com.fancia.backend.shared.common.comment.core.dto.CommentResponse
 import com.fancia.backend.shared.common.comment.core.dto.CreateCommentRequest
+import com.fancia.backend.venue.core.service.VenueCommentService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponse

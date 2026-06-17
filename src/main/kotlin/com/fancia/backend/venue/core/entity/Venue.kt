@@ -3,6 +3,7 @@ package com.fancia.backend.venue.core.entity
 import com.fancia.backend.shared.common.core.entity.AbstractEntity
 import com.fancia.backend.shared.common.social.core.entity.Link
 import jakarta.persistence.*
+import java.util.*
 
 @Entity
 @Table(name = "venues")
@@ -17,9 +18,9 @@ class Venue : AbstractEntity() {
     val staff: MutableSet<VenueStaff> = mutableSetOf<VenueStaff>()
 
     @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable
-    @Column(length = 100)
-    var tags: MutableSet<String> = mutableSetOf()
+    @CollectionTable(name = "venue_tags", joinColumns = [JoinColumn(name = "venue_id")])
+    @Column(name = "tag_id")
+    var tags: MutableSet<UUID> = mutableSetOf()
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "venue_links", joinColumns = [JoinColumn(name = "venue_id")])
@@ -30,9 +31,7 @@ class Venue : AbstractEntity() {
 
     @Column(length = 255)
     var placeId: String? = null
-
     var latitude: Double? = null
-
     var longitude: Double? = null
 
     @Column(length = 500)

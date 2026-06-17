@@ -1,10 +1,10 @@
 package com.fancia.backend.venue.core.service
 
-import com.fancia.backend.venue.external.CommonInternalClient
 import com.fancia.backend.shared.common.comment.core.dto.CommentResponse
 import com.fancia.backend.shared.common.comment.core.dto.CreateCommentRequest
 import com.fancia.backend.shared.common.comment.core.exception.CommentNotFoundException
 import com.fancia.backend.shared.common.core.exception.InvalidAuthenticationException
+import com.fancia.backend.venue.external.CommonInternalClient
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.security.oauth2.jwt.Jwt

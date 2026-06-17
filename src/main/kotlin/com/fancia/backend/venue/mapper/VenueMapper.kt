@@ -1,10 +1,10 @@
 package com.fancia.backend.venue.mapper
 
-import com.fancia.backend.venue.core.entity.Venue
-import com.fancia.backend.venue.core.support.VenueLocationSupport
 import com.fancia.backend.shared.venue.core.dto.CreateVenueRequest
 import com.fancia.backend.shared.venue.core.dto.UpdateVenueRequest
 import com.fancia.backend.shared.venue.core.dto.VenueResponse
+import com.fancia.backend.venue.core.entity.Venue
+import com.fancia.backend.venue.core.support.VenueLocationSupport
 import org.mapstruct.*
 
 @Mapper(
@@ -14,9 +14,33 @@ import org.mapstruct.*
     unmappedSourcePolicy = ReportingPolicy.IGNORE,
     unmappedTargetPolicy = ReportingPolicy.IGNORE
 )
-interface VenueMapper {
+abstract class VenueMapper {
     @Mapping(target = "location", ignore = true)
-    fun toDto(venue: Venue): VenueResponse
+    abstract fun toDto(venue: Venue): VenueResponse
+
+    @Mapping(target = "links", ignore = true)
+    @Mapping(target = "tags", ignore = true)
+    @Mapping(target = "locationLabel", ignore = true)
+    @Mapping(target = "placeId", ignore = true)
+    @Mapping(target = "latitude", ignore = true)
+    @Mapping(target = "longitude", ignore = true)
+    @Mapping(target = "addressLine", ignore = true)
+    @Mapping(target = "city", ignore = true)
+    @Mapping(target = "postcode", ignore = true)
+    @Mapping(target = "country", ignore = true)
+    abstract fun toBean(request: CreateVenueRequest): Venue
+
+    @Mapping(target = "links", ignore = true)
+    @Mapping(target = "tags", ignore = true)
+    @Mapping(target = "locationLabel", ignore = true)
+    @Mapping(target = "placeId", ignore = true)
+    @Mapping(target = "latitude", ignore = true)
+    @Mapping(target = "longitude", ignore = true)
+    @Mapping(target = "addressLine", ignore = true)
+    @Mapping(target = "city", ignore = true)
+    @Mapping(target = "postcode", ignore = true)
+    @Mapping(target = "country", ignore = true)
+    abstract fun toBean(request: UpdateVenueRequest, @MappingTarget target: Venue): Venue
 
     @Mapping(target = "links", ignore = true)
     @Mapping(target = "locationLabel", ignore = true)
@@ -27,19 +51,7 @@ interface VenueMapper {
     @Mapping(target = "city", ignore = true)
     @Mapping(target = "postcode", ignore = true)
     @Mapping(target = "country", ignore = true)
-    fun toBean(request: CreateVenueRequest): Venue
-
-    @Mapping(target = "links", ignore = true)
-    @Mapping(target = "locationLabel", ignore = true)
-    @Mapping(target = "placeId", ignore = true)
-    @Mapping(target = "latitude", ignore = true)
-    @Mapping(target = "longitude", ignore = true)
-    @Mapping(target = "addressLine", ignore = true)
-    @Mapping(target = "city", ignore = true)
-    @Mapping(target = "postcode", ignore = true)
-    @Mapping(target = "country", ignore = true)
-    fun toBean(request: UpdateVenueRequest, @MappingTarget target: Venue): Venue
-    fun toBean(request: VenueResponse): Venue
+    abstract fun toBean(request: VenueResponse): Venue
 
     @AfterMapping
     fun initializeCollections(@MappingTarget venue: Venue) {

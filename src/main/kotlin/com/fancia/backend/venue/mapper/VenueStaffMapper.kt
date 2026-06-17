@@ -1,9 +1,9 @@
 package com.fancia.backend.venue.mapper
 
-import com.fancia.backend.venue.core.entity.VenueStaff
 import com.fancia.backend.shared.venue.core.dto.CreateVenueStaffRequest
 import com.fancia.backend.shared.venue.core.dto.UpdateVenueStaffRequest
 import com.fancia.backend.shared.venue.core.dto.VenueStaffResponse
+import com.fancia.backend.venue.core.entity.VenueStaff
 import org.mapstruct.*
 
 @Mapper(
