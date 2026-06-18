@@ -91,8 +91,8 @@ class VenueController(
         @Parameter(description = "Fuzzy search term for venue description")
         description: String?,
         @RequestParam(required = false)
-        @Parameter(description = "Fuzzy search term for tags, use comma to separate multiple tags")
-        tags: String? = null,
+        @Parameter(description = "Filter by tag ids (entities matching any of the ids)")
+        tagIds: List<UUID> = emptyList(),
         @RequestParam(required = false)
         @Parameter(description = "Latitude for proximity search")
         lat: Double?,
@@ -105,7 +105,7 @@ class VenueController(
         @PageableDefault(size = 20)
         pageable: Pageable
     ): ResponseEntity<Page<VenueResponse>> {
-        val venues = venueService.findAll(name, description, tags, lat, lng, radiusKm, pageable)
+        val venues = venueService.findAll(name, description, tagIds, lat, lng, radiusKm, pageable)
         return ResponseEntity.ok(venues)
     }
 }

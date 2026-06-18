@@ -43,10 +43,10 @@ class VenueCommentControllerIntegrationTest(
 
     fun createVenueViaApi(userId: UUID): UUID {
         stubFor(
-            get(urlPathEqualTo("/api/tags"))
+            post(urlPathEqualTo("/api/tags"))
                 .willReturn(
                     aResponse()
-                        .withStatus(200)
+                        .withStatus(201)
                         .withHeader("Content-Type", "application/json")
                         .withBody(
                             jsonMapper.writeValueAsString(

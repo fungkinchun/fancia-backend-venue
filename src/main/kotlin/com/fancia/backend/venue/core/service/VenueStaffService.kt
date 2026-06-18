@@ -10,7 +10,8 @@ import com.fancia.backend.shared.venue.core.exception.*
 import com.fancia.backend.venue.core.entity.VenueStaffId
 import com.fancia.backend.venue.core.repository.VenueRepository
 import com.fancia.backend.venue.core.repository.VenueStaffRepository
-import com.fancia.backend.venue.mapper.VenueStaffMapper
+import com.fancia.backend.venue.mapper.toDto
+import com.fancia.backend.venue.mapper.toEntity
 import jakarta.validation.Valid
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
@@ -24,7 +25,6 @@ import java.util.*
 class VenueStaffService(
     private val venueRepository: VenueRepository,
     private val venueStaffRepository: VenueStaffRepository,
-    private val venueStaffMapper: VenueStaffMapper,
 ) {
     @Transactional
     fun create(
@@ -43,13 +43,13 @@ class VenueStaffService(
         ) {
             throw VenueStaffAlreadyExistsException(venueId, currentUserId)
         }
-        val staff = venueStaffMapper.toBean(request)
+        val staff = request.toEntity()
         staff.venue = venue
         staff.id = VenueStaffId(
             venueId = venueId,
             userId = currentUserId
         )
-        return venueStaffRepository.save(staff).let(venueStaffMapper::toDto)
+        return venueStaffRepository.save(staff).toDto()
     }
 
     @Transactional
@@ -78,9 +78,8 @@ class VenueStaffService(
             venueId,
             userId
         ) ?: throw VenueStaffNotFoundException(venueId, userId)
-        venueStaffMapper.toBean(request, staff)
-        return venueStaffRepository.save(staff)
-            .let(venueStaffMapper::toDto)
+        request.toEntity(staff)
+        return venueStaffRepository.save(staff).toDto()
     }
 
     @Transactional
@@ -97,6 +96,6 @@ class VenueStaffService(
         pageable: Pageable
     ): Page<VenueStaffResponse> {
         val staffMemberships = venueStaffRepository.findByIdUserIdAndRole(userId, role, pageable)
-        return staffMemberships.map(venueStaffMapper::toDto)
+        return staffMemberships.map { it.toDto() }
     }
 }

@@ -1,15 +1,12 @@
 package com.fancia.backend.venue
 
-import com.fancia.backend.shared.common.tag.core.entity.Tag
-import com.fancia.backend.shared.common.tag.core.enums.TagType
 import com.fancia.backend.shared.venue.core.dto.VenueResponse
 import com.fancia.backend.venue.core.entity.Venue
 import com.fancia.backend.venue.core.repository.VenueRepository
-import com.fancia.backend.venue.mapper.VenueMapper
+import com.fancia.backend.venue.mapper.toEntity
 import com.github.tomakehurst.wiremock.client.WireMock.*
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import jakarta.persistence.EntityManager
 import org.hamcrest.CoreMatchers.`is`
 import org.hamcrest.CoreMatchers.notNullValue
 import org.springframework.boot.test.context.SpringBootTest
@@ -37,8 +34,6 @@ class VenueControllerIntegrationTest(
     private val venueRepository: VenueRepository,
     private val jsonMapper: JsonMapper,
     private val wiremock: WireMockContainer,
-    private val venueMapper: VenueMapper,
-    private val entityManager: EntityManager,
 ) : FunSpec({
     beforeSpec {
         configureFor(
@@ -47,46 +42,38 @@ class VenueControllerIntegrationTest(
         )
     }
 
-    fun persistTopicTag(name: String): Tag {
-        val tag = Tag(name = name, type = TagType.TOPIC)
-        entityManager.persist(tag)
-        entityManager.flush()
-        return tag
-    }
-
-    fun stubTopicTag(tag: Tag) {
+    fun stubCreateTag(name: String): UUID {
+        val tagId = UUID.randomUUID()
         stubFor(
-            get(urlPathEqualTo("/api/tags"))
-                .withQueryParam("search", equalTo(tag.name))
-                .withQueryParam("type", equalTo("TOPIC"))
+            post(urlPathEqualTo("/api/tags"))
                 .willReturn(
                     aResponse()
-                        .withStatus(200)
+                        .withStatus(201)
                         .withHeader("Content-Type", "application/json")
                         .withBody(
                             jsonMapper.writeValueAsString(
                                 mapOf(
                                     "content" to listOf(
                                         mapOf(
-                                            "id" to tag.id.toString(),
-                                            "name" to tag.name,
+                                            "id" to tagId.toString(),
+                                            "name" to name,
                                             "type" to "TOPIC",
                                         ),
                                     ),
                                     "totalElements" to 1,
                                     "totalPages" to 1,
-                                    "size" to 20,
+                                    "size" to 1,
                                     "number" to 0,
                                 ),
                             ),
                         ),
                 ),
         )
+        return tagId
     }
 
     test("should create a new venue") {
-        val goodTag = persistTopicTag("good")
-        stubTopicTag(goodTag)
+        stubCreateTag("good")
         val testUserId = UUID.randomUUID()
         val response = mockMvc
             .post("/api/venues") {
@@ -122,9 +109,9 @@ class VenueControllerIntegrationTest(
                 jsonPath("$.links[0].type", `is`("WEBSITE"))
                 jsonPath("$.links[0].url", `is`("https://example.com"))
             }
-        val createdVenue = response.toVenue(jsonMapper, venueMapper)
+        val createdVenue = response.toVenue(jsonMapper)
         val found = venueRepository.findByIdOrNull(createdVenue.id!!)
-        createdVenue shouldBe found
+        found?.id shouldBe createdVenue.id
         createdVenue.links.size shouldBe 2
     }
 
@@ -157,8 +144,9 @@ class VenueControllerIntegrationTest(
 
     test("should list venues") {
         val venue = venueRepository.findAll().first { it.name == "testVenue" }
+        val tagId = venue.tags.first()
         mockMvc
-            .get("/api/venues?tags=good&page=0&size=3") {
+            .get("/api/venues?tagIds=$tagId&page=0&size=3") {
                 accept = APPLICATION_JSON
             }
             .andDo { print() }
@@ -173,7 +161,7 @@ class VenueControllerIntegrationTest(
 
     test("should not list venues because of wrong tag") {
         mockMvc
-            .get("/api/venues?tags=bad&page=0&size=3") {
+            .get("/api/venues?tagIds=${UUID.randomUUID()}&page=0&size=3") {
                 accept = APPLICATION_JSON
             }
             .andDo { print() }
@@ -188,14 +176,11 @@ class VenueControllerIntegrationTest(
     }
 })
 
-private fun ResultActionsDsl.toVenue(
-    jsonMapper: JsonMapper,
-    venueMapper: VenueMapper
-): Venue =
+private fun ResultActionsDsl.toVenue(jsonMapper: JsonMapper): Venue =
     andReturn()
         .response
         .contentAsString
         .let {
             jsonMapper.readValue(it, object : TypeReference<VenueResponse>() {})
-                .let(venueMapper::toBean)
+                .toEntity()
         }

@@ -15,19 +15,27 @@ interface VenueRepository : JpaRepository<Venue, UUID> {
         """
     SELECT v
     FROM Venue v
-    WHERE trgm_word_similarity(:name, v.name) = true
-       OR trgm_word_similarity(:description, v.description) = true
-       OR trgm_word_similarity(:tags, 
-       (SELECT LISTAGG(t.name, ',') WITHIN GROUP (ORDER BY t.name) FROM Tag t WHERE t.id IN elements(v.tags))
-       ) = true
-    GROUP BY v
-"""
+    WHERE (
+        (:name = '' AND :description = '')
+        OR trgm_word_similarity(:name, v.name) = true
+        OR trgm_word_similarity(:description, v.description) = true
     )
-    fun findAll(
+    AND (:filterByTagIds = false OR EXISTS (SELECT tag FROM v.tags tag WHERE tag IN :tagIds))
+    GROUP BY v
+""",
+    )
+    fun search(
         @Param("name") name: String,
         @Param("description") description: String,
-        @Param("tags") tags: String,
-        pageable: Pageable
+        @Param("filterByTagIds") filterByTagIds: Boolean,
+        @Param("tagIds") tagIds: Collection<UUID>,
+        pageable: Pageable,
+    ): Page<Venue>
+
+    @Query("SELECT DISTINCT v FROM Venue v JOIN v.tags tag WHERE tag IN :tagIds")
+    fun findByTagIdIn(
+        @Param("tagIds") tagIds: Collection<UUID>,
+        pageable: Pageable,
     ): Page<Venue>
 
     fun findByIdAndCreatedBy(@Param("id") id: UUID, @Param("createdBy") createdBy: UUID): Venue?

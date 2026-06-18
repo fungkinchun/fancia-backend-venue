@@ -2,6 +2,7 @@ package com.fancia.backend.venue.core.service
 
 import com.fancia.backend.shared.common.core.exception.InvalidAuthenticationException
 import com.fancia.backend.shared.common.social.core.entity.Link
+import com.fancia.backend.shared.common.tag.core.dto.CreateTagsRequest
 import com.fancia.backend.shared.common.tag.core.dto.TagItemRequest
 import com.fancia.backend.shared.venue.core.dto.CreateVenueRequest
 import com.fancia.backend.shared.venue.core.dto.UpdateVenueRequest
@@ -12,7 +13,8 @@ import com.fancia.backend.venue.core.entity.Venue
 import com.fancia.backend.venue.core.repository.VenueRepository
 import com.fancia.backend.venue.core.support.VenueLocationSupport
 import com.fancia.backend.venue.external.CommonServiceClient
-import com.fancia.backend.venue.mapper.VenueMapper
+import com.fancia.backend.venue.mapper.toDto
+import com.fancia.backend.venue.mapper.toEntity
 import jakarta.validation.Valid
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
@@ -24,20 +26,19 @@ import java.util.*
 @Service
 class VenueService(
     private val venueRepository: VenueRepository,
-    private val venueMapper: VenueMapper,
     private val venueStaffService: VenueStaffService,
     private val commonServiceClient: CommonServiceClient,
 ) {
     fun findById(id: UUID): VenueResponse {
         return venueRepository.findById(id)
-            .map(venueMapper::toDto)
+            .map { it.toDto() }
             .orElseThrow { VenueNotFoundException(id) }
     }
 
     fun findAll(
         name: String?,
         description: String?,
-        tags: String?,
+        tagIds: List<UUID>?,
         latitude: Double?,
         longitude: Double?,
         radiusKm: Double?,
@@ -46,22 +47,27 @@ class VenueService(
         if (latitude != null && longitude != null && radiusKm != null) {
             val radiusMeters = radiusKm * 1000
             return venueRepository.findNearby(latitude, longitude, radiusMeters, pageable)
-                .map(venueMapper::toDto)
+                .map { it.toDto() }
         }
+        val trimmedName = name?.trim().orEmpty()
+        val trimmedDescription = description?.trim().orEmpty()
+        val hasText = trimmedName.isNotEmpty() || trimmedDescription.isNotEmpty()
+        val hasTagIds = !tagIds.isNullOrEmpty()
         val venues = when {
-            name.isNullOrBlank() && description.isNullOrBlank() && tags.isNullOrBlank() ->
-                venueRepository.findAll(pageable)
+            !hasText && !hasTagIds -> venueRepository.findAll(pageable)
+            !hasText && hasTagIds ->
+                venueRepository.findByTagIdIn(tagIds!!, pageable)
 
-            else -> {
-                venueRepository.findAll(
-                    name?.trim() ?: "",
-                    description?.trim() ?: "",
-                    tags?.trim() ?: "",
-                    pageable
+            else ->
+                venueRepository.search(
+                    trimmedName,
+                    trimmedDescription,
+                    hasTagIds,
+                    tagIds.orEmpty(),
+                    pageable,
                 )
-            }
         }
-        return venues.map(venueMapper::toDto)
+        return venues.map { it.toDto() }
     }
 
     fun findByIdAndCreatedBy(id: UUID, createdBy: UUID): Venue? {
@@ -72,14 +78,14 @@ class VenueService(
     fun create(request: @Valid CreateVenueRequest, jwt: Jwt): VenueResponse {
         val currentUserId = jwt.getClaimAsString("userId")?.let { UUID.fromString(it) }
             ?: throw InvalidAuthenticationException()
-        venueMapper.toBean(request).let { it ->
+        request.toEntity().let { it ->
             it.createdBy = currentUserId
             applyTags(it.tags, request.tags)
             it.links.clear()
             it.links.addAll(request.links.map { link -> Link(type = link.type, url = link.url) })
             VenueLocationSupport.apply(it, request.location)
             val venue = venueRepository.save(it)
-            return venue.let(venueMapper::toDto)
+            return venue.toDto()
         }
     }
 
@@ -89,12 +95,12 @@ class VenueService(
             ?: throw InvalidAuthenticationException()
         val venue = venueRepository.findByIdAndCreatedBy(id, currentUserId)
             ?: throw VenueStaffNotFoundException(id, currentUserId)
-        venueMapper.toBean(request, venue).let {
+        request.toEntity(venue).let {
             applyTags(it.tags, request.tags)
             it.links.clear()
             it.links.addAll(request.links.map { link -> Link(type = link.type, url = link.url) })
             VenueLocationSupport.apply(it, request.location)
-            return venueRepository.save(it).let(venueMapper::toDto)
+            return venueRepository.save(it).toDto()
         }
     }
 
@@ -110,14 +116,12 @@ class VenueService(
     }
 
     private fun applyTags(tags: MutableSet<UUID>, requestTags: Set<TagItemRequest>) {
-        val resolved = requestTags
-            .groupBy { it.type }
-            .flatMap { (type, items) ->
-                val names = items.map { it.name }.toSet()
-                if (names.isEmpty()) emptyList() else commonServiceClient.getTags(names, type).content
-            }
-            .mapNotNull { it.id }
         tags.clear()
+        if (requestTags.isEmpty()) return
+        val resolved = commonServiceClient.createTags(
+            CreateTagsRequest(tags = requestTags.toList()),
+            size = requestTags.size,
+        ).content.mapNotNull { it.id }
         tags.addAll(resolved)
     }
 }
