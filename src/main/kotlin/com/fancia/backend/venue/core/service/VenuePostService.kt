@@ -3,9 +3,13 @@ package com.fancia.backend.venue.core.service
 import com.fancia.backend.shared.common.core.exception.InvalidAuthenticationException
 import com.fancia.backend.shared.common.post.core.dto.CreatePostBody
 import com.fancia.backend.shared.common.post.core.dto.CreatePostRequest
+import com.fancia.backend.shared.common.post.core.dto.PostMediaItem
 import com.fancia.backend.shared.common.post.core.dto.PostResponse
 import com.fancia.backend.shared.common.post.core.dto.UpdatePostRequest
 import com.fancia.backend.shared.common.post.core.exception.PostAccessDeniedException
+import com.fancia.backend.shared.upload.storage.core.enums.UploadScope
+import com.fancia.backend.shared.upload.storage.core.service.FileStorageService
+import com.fancia.backend.shared.upload.storage.core.service.moveTmpToDedicatedPath
 import com.fancia.backend.shared.venue.core.enums.StaffStatus
 import com.fancia.backend.shared.venue.core.exception.VenueNotFoundException
 import com.fancia.backend.venue.core.repository.VenueRepository
@@ -25,6 +29,7 @@ class VenuePostService(
     private val venueStaffRepository: VenueStaffRepository,
     private val commonInternalClient: CommonInternalClient,
     private val jsonMapper: JsonMapper,
+    private val fileUploadService: FileStorageService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     fun create(venueId: UUID, request: CreatePostBody, jwt: Jwt): PostResponse {
@@ -45,7 +50,7 @@ class VenuePostService(
             targetId = venueId,
             authorUserId = currentUserId,
             body = request.body,
-            media = request.media,
+            media = dedicateMedia(request.media, venueId),
             featured = request.featured,
             pinned = request.pinned,
         )
@@ -64,8 +69,9 @@ class VenuePostService(
         if (!venueRepository.existsById(venueId)) {
             throw VenueNotFoundException(venueId)
         }
-        log.debug("common-api updatePost payload: {}", jsonMapper.writeValueAsString(request))
-        val post = commonInternalClient.updatePost(postId, request)
+        val scopedRequest = request.copy(media = dedicateMedia(request.media, venueId))
+        log.debug("common-api updatePost payload: {}", jsonMapper.writeValueAsString(scopedRequest))
+        val post = commonInternalClient.updatePost(postId, scopedRequest)
         if (post.targetId != venueId) {
             throw VenueNotFoundException(venueId)
         }
@@ -103,4 +109,15 @@ class VenuePostService(
         }
         return post
     }
+
+    private fun dedicateMedia(media: List<PostMediaItem>, venueId: UUID): List<PostMediaItem> =
+        media.map { item ->
+            item.copy(
+                objectKey = fileUploadService.moveTmpToDedicatedPath(
+                    item.objectKey,
+                    UploadScope.VENUE,
+                    venueId,
+                ),
+            )
+        }
 }
