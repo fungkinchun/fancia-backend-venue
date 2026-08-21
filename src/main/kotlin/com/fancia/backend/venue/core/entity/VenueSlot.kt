@@ -15,7 +15,7 @@ import java.time.LocalDateTime
 @Entity
 @Table(name = "venue_slots")
 class VenueSlot : AbstractEntity() {
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "venue_id", nullable = false)
     var venue: Venue? = null
 

@@ -16,11 +16,11 @@ import java.util.UUID
 @Entity
 @Table(name = "venue_bookings")
 class VenueBooking : AbstractEntity() {
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "venue_id", nullable = false)
     var venue: Venue? = null
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "slot_id", nullable = false)
     var slot: VenueSlot? = null
 
