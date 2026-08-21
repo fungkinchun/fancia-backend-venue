@@ -9,7 +9,9 @@ import org.springframework.stereotype.Component
 class UserConsumer(
     private val venueStaffService: VenueStaffService
 ) {
-    @KafkaListener(topics = ["users"], groupId = "deletion")
+    // Group id must be unique per service: sharing one makes Kafka split the partitions between
+    // them, so each deletion would reach only one of the two services.
+    @KafkaListener(topics = ["users"], groupId = "venue-user-deletion")
     fun onUserDeleted(event: UserDeletedEvent) {
         venueStaffService.removeStaffFromAllVenues(event.id)
     }

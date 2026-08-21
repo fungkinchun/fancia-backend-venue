@@ -50,6 +50,12 @@ class TestConfig {
             registry.add("spring.cloud.openfeign.client.config.common-internal-service.url") {
                 wiremock.baseUrl
             }
+            registry.add("spring.cloud.openfeign.client.config.payment-service.url") {
+                wiremock.baseUrl
+            }
+            registry.add("spring.cloud.openfeign.client.config.payment-internal-service.url") {
+                wiremock.baseUrl
+            }
         }
     }
 
