@@ -16,6 +16,30 @@ spring:
         jwt:
           issuer-uri: ${AUTH_SERVICE_URL:auth-service}
           jwk-set-uri: ${AUTH_INTERNAL_SERVICE_URL:${AUTH_SERVICE_URL:auth-service}}/oauth2/jwks
+  mvc:
+    cors:
+      mappings:
+        "[/**]":
+          allowed-origins:
+            - "http://localhost:3000"
+            - "https://fancia.co.uk"
+            - "https://www.fancia.co.uk"
+          allowed-methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - PATCH
+            - OPTIONS
+          allowed-headers:
+            - Authorization
+            - Content-Type
+            - Accept
+          exposed-headers:
+            - Authorization
+            - Content-Type
+          allow-credentials: true
+          max-age: 3600s
   datasource:
     url: ${DATABASE_URL}
     username: ${AWS_RDS_SECRET_NAME:${DATABASE_USERNAME}}
