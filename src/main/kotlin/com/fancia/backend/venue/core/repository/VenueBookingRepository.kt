@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import java.time.LocalDateTime
 import java.util.Optional
 import java.util.UUID
 
@@ -39,13 +40,20 @@ interface VenueBookingRepository : JpaRepository<VenueBooking, UUID> {
     @Query(
         """
         select count(b) from VenueBooking b
+        join b.slot s
         where b.area.id = :areaId
           and b.status in :statuses
+          and s.startTime < :endTime
+          and s.endTime > :startTime
+          and (:excludeBookingId is null or b.id <> :excludeBookingId)
         """,
     )
-    fun countClaimedSeats(
+    fun countClaimedSeatsOverlapping(
         @Param("areaId") areaId: UUID,
+        @Param("startTime") startTime: LocalDateTime,
+        @Param("endTime") endTime: LocalDateTime,
         @Param("statuses") statuses: Collection<VenueBookingStatus>,
+        @Param("excludeBookingId") excludeBookingId: UUID? = null,
     ): Long
 
     @Query(

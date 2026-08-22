@@ -1,9 +1,9 @@
 package com.fancia.backend.venue.core.controller
 
-import com.fancia.backend.shared.venue.core.dto.CreateVenueSlotAreaRequest
-import com.fancia.backend.shared.venue.core.dto.UpdateVenueSlotAreaRequest
-import com.fancia.backend.shared.venue.core.dto.VenueSlotAreaResponse
-import com.fancia.backend.venue.core.service.VenueSlotAreaService
+import com.fancia.backend.shared.venue.core.dto.CreateVenueAreaRequest
+import com.fancia.backend.shared.venue.core.dto.UpdateVenueAreaRequest
+import com.fancia.backend.shared.venue.core.dto.VenueAreaResponse
+import com.fancia.backend.venue.core.service.VenueAreaService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -22,52 +22,48 @@ import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
 
 @RestController
-@RequestMapping("/api/venues/{venueId}/slots/{slotId}/areas")
-@Tag(name = "Venue Slot Areas", description = "Bookable areas within a venue slot, each with its own price")
-class VenueSlotAreaController(
-    private val venueSlotAreaService: VenueSlotAreaService,
+@RequestMapping("/api/venues/{venueId}/areas")
+@Tag(name = "Venue Areas", description = "Bookable areas defined on a venue and selected when booking a slot")
+class VenueAreaController(
+    private val venueAreaService: VenueAreaService,
 ) {
-    @Operation(summary = "List bookable areas for a slot")
+    @Operation(summary = "List bookable areas for a venue")
     @GetMapping
     fun list(
         @PathVariable venueId: UUID,
-        @PathVariable slotId: UUID,
-    ): ResponseEntity<List<VenueSlotAreaResponse>> =
-        ResponseEntity.ok(venueSlotAreaService.list(venueId, slotId))
+    ): ResponseEntity<List<VenueAreaResponse>> =
+        ResponseEntity.ok(venueAreaService.list(venueId))
 
-    @Operation(summary = "Create an area on a draft slot")
+    @Operation(summary = "Create a venue area")
     @PostMapping
     @SecurityRequirement(name = "bearerAuth")
     fun create(
         @PathVariable venueId: UUID,
-        @PathVariable slotId: UUID,
-        @RequestBody @Valid request: CreateVenueSlotAreaRequest,
+        @RequestBody @Valid request: CreateVenueAreaRequest,
         @AuthenticationPrincipal jwt: Jwt,
-    ): ResponseEntity<VenueSlotAreaResponse> =
-        ResponseEntity.ok(venueSlotAreaService.create(venueId, slotId, request, jwt))
+    ): ResponseEntity<VenueAreaResponse> =
+        ResponseEntity.ok(venueAreaService.create(venueId, request, jwt))
 
-    @Operation(summary = "Update an area on a draft slot")
+    @Operation(summary = "Update a venue area")
     @PutMapping("/{areaId}")
     @SecurityRequirement(name = "bearerAuth")
     fun update(
         @PathVariable venueId: UUID,
-        @PathVariable slotId: UUID,
         @PathVariable areaId: UUID,
-        @RequestBody @Valid request: UpdateVenueSlotAreaRequest,
+        @RequestBody @Valid request: UpdateVenueAreaRequest,
         @AuthenticationPrincipal jwt: Jwt,
-    ): ResponseEntity<VenueSlotAreaResponse> =
-        ResponseEntity.ok(venueSlotAreaService.update(venueId, slotId, areaId, request, jwt))
+    ): ResponseEntity<VenueAreaResponse> =
+        ResponseEntity.ok(venueAreaService.update(venueId, areaId, request, jwt))
 
-    @Operation(summary = "Delete an area from a draft slot")
+    @Operation(summary = "Delete a venue area")
     @DeleteMapping("/{areaId}")
     @SecurityRequirement(name = "bearerAuth")
     fun delete(
         @PathVariable venueId: UUID,
-        @PathVariable slotId: UUID,
         @PathVariable areaId: UUID,
         @AuthenticationPrincipal jwt: Jwt,
     ): ResponseEntity<Void> {
-        venueSlotAreaService.delete(venueId, slotId, areaId, jwt)
+        venueAreaService.delete(venueId, areaId, jwt)
         return ResponseEntity.noContent().build()
     }
 }

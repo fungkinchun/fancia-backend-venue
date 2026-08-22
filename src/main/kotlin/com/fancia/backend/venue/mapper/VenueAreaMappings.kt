@@ -1,15 +1,15 @@
 package com.fancia.backend.venue.mapper
 
-import com.fancia.backend.shared.venue.core.dto.CreateVenueSlotAreaRequest
-import com.fancia.backend.shared.venue.core.dto.UpdateVenueSlotAreaRequest
-import com.fancia.backend.shared.venue.core.dto.VenueSlotAreaResponse
-import com.fancia.backend.venue.core.entity.VenueSlot
-import com.fancia.backend.venue.core.entity.VenueSlotArea
+import com.fancia.backend.shared.venue.core.dto.CreateVenueAreaRequest
+import com.fancia.backend.shared.venue.core.dto.UpdateVenueAreaRequest
+import com.fancia.backend.shared.venue.core.dto.VenueAreaResponse
+import com.fancia.backend.venue.core.entity.Venue
+import com.fancia.backend.venue.core.entity.VenueArea
 
-fun VenueSlotArea.toDto(): VenueSlotAreaResponse =
-    VenueSlotAreaResponse(
+fun VenueArea.toDto(): VenueAreaResponse =
+    VenueAreaResponse(
         id = id,
-        slotId = slot!!.id!!,
+        venueId = venue!!.id!!,
         name = name,
         priceMinor = priceMinor,
         currency = currency,
@@ -19,9 +19,9 @@ fun VenueSlotArea.toDto(): VenueSlotAreaResponse =
         createdAt = createdAt,
     )
 
-fun CreateVenueSlotAreaRequest.toEntity(slot: VenueSlot): VenueSlotArea =
-    VenueSlotArea().apply {
-        this.slot = slot
+fun CreateVenueAreaRequest.toEntity(venue: Venue): VenueArea =
+    VenueArea().apply {
+        this.venue = venue
         name = this@toEntity.name.trim()
         priceMinor = this@toEntity.priceMinor
         currency = this@toEntity.currency.trim().lowercase()
@@ -29,7 +29,7 @@ fun CreateVenueSlotAreaRequest.toEntity(slot: VenueSlot): VenueSlotArea =
         sortOrder = this@toEntity.sortOrder
     }
 
-fun UpdateVenueSlotAreaRequest.applyTo(area: VenueSlotArea): VenueSlotArea {
+fun UpdateVenueAreaRequest.applyTo(area: VenueArea): VenueArea {
     name?.let { area.name = it.trim() }
     priceMinor?.let { area.priceMinor = it }
     currency?.let { area.currency = it.trim().lowercase() }

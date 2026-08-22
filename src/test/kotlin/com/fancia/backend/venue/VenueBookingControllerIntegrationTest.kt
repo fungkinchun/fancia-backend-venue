@@ -208,7 +208,7 @@ class VenueBookingControllerIntegrationTest(
         stubPayoutReady(ownerId, ready = true)
         val slotId = createDraftSlot(venueId, ownerId)
 
-        val vipBody = mockMvc.post("/api/venues/{venueId}/slots/{slotId}/areas", venueId, slotId) {
+        val vipBody = mockMvc.post("/api/venues/{venueId}/areas", venueId) {
             with(jwtFor(ownerId))
             content = jsonMapper.writeValueAsString(
                 mapOf("name" to "VIP", "priceMinor" to 12000, "currency" to "gbp", "capacity" to 200),
@@ -218,7 +218,7 @@ class VenueBookingControllerIntegrationTest(
         }.andExpect { status { isOk() } }.andReturn().response.contentAsString
         val vipAreaId = UUID.fromString(jsonMapper.readTree(vipBody).get("id").asText())
 
-        mockMvc.post("/api/venues/{venueId}/slots/{slotId}/areas", venueId, slotId) {
+        mockMvc.post("/api/venues/{venueId}/areas", venueId) {
             with(jwtFor(ownerId))
             content = jsonMapper.writeValueAsString(
                 mapOf("name" to "Standard", "priceMinor" to 4500, "currency" to "gbp", "capacity" to 5000),
@@ -245,6 +245,117 @@ class VenueBookingControllerIntegrationTest(
         }
 
         venueSlotRepository.findById(slotId).get().status.name shouldBe "PUBLISHED"
+    }
+
+    test("should reject area booking when overlapping slot already holds the area at capacity") {
+        val ownerId = UUID.randomUUID()
+        val guestA = UUID.randomUUID()
+        val guestB = UUID.randomUUID()
+        val venueId = createVenue(ownerId)
+        stubPayoutReady(ownerId, ready = true)
+
+        val areaBody = mockMvc.post("/api/venues/{venueId}/areas", venueId) {
+            with(jwtFor(ownerId))
+            content = jsonMapper.writeValueAsString(
+                mapOf("name" to "VIP", "priceMinor" to 0, "currency" to "gbp", "capacity" to 1),
+            )
+            contentType = APPLICATION_JSON
+            accept = APPLICATION_JSON
+        }.andExpect { status { isOk() } }.andReturn().response.contentAsString
+        val areaId = UUID.fromString(jsonMapper.readTree(areaBody).get("id").asText())
+
+        val slotA = createAndPublishSlot(
+            venueId,
+            ownerId,
+            priceMinor = 0,
+            start = "2030-08-01T10:00:00",
+            end = "2030-08-01T12:00:00",
+        )
+        val slotB = createAndPublishSlot(
+            venueId,
+            ownerId,
+            priceMinor = 0,
+            start = "2030-08-01T11:00:00",
+            end = "2030-08-01T13:00:00",
+        )
+
+        mockMvc.post("/api/venues/{venueId}/bookings", venueId) {
+            with(jwtFor(guestA))
+            content = jsonMapper.writeValueAsString(
+                mapOf("slotId" to slotA.toString(), "areaId" to areaId.toString()),
+            )
+            contentType = APPLICATION_JSON
+            accept = APPLICATION_JSON
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.status", `is`("REQUESTED"))
+        }
+
+        mockMvc.post("/api/venues/{venueId}/bookings", venueId) {
+            with(jwtFor(guestB))
+            content = jsonMapper.writeValueAsString(
+                mapOf("slotId" to slotB.toString(), "areaId" to areaId.toString()),
+            )
+            contentType = APPLICATION_JSON
+            accept = APPLICATION_JSON
+        }.andExpect {
+            status { isBadRequest() }
+            jsonPath("$.errorCode", `is`("VENUE_AREA_SOLD_OUT"))
+        }
+    }
+
+    test("should allow area booking on a non-overlapping slot") {
+        val ownerId = UUID.randomUUID()
+        val guestA = UUID.randomUUID()
+        val guestB = UUID.randomUUID()
+        val venueId = createVenue(ownerId)
+        stubPayoutReady(ownerId, ready = true)
+
+        val areaBody = mockMvc.post("/api/venues/{venueId}/areas", venueId) {
+            with(jwtFor(ownerId))
+            content = jsonMapper.writeValueAsString(
+                mapOf("name" to "VIP", "priceMinor" to 0, "currency" to "gbp", "capacity" to 1),
+            )
+            contentType = APPLICATION_JSON
+            accept = APPLICATION_JSON
+        }.andExpect { status { isOk() } }.andReturn().response.contentAsString
+        val areaId = UUID.fromString(jsonMapper.readTree(areaBody).get("id").asText())
+
+        val slotA = createAndPublishSlot(
+            venueId,
+            ownerId,
+            priceMinor = 0,
+            start = "2030-08-02T10:00:00",
+            end = "2030-08-02T12:00:00",
+        )
+        val slotB = createAndPublishSlot(
+            venueId,
+            ownerId,
+            priceMinor = 0,
+            start = "2030-08-02T12:00:00",
+            end = "2030-08-02T14:00:00",
+        )
+
+        mockMvc.post("/api/venues/{venueId}/bookings", venueId) {
+            with(jwtFor(guestA))
+            content = jsonMapper.writeValueAsString(
+                mapOf("slotId" to slotA.toString(), "areaId" to areaId.toString()),
+            )
+            contentType = APPLICATION_JSON
+            accept = APPLICATION_JSON
+        }.andExpect { status { isOk() } }
+
+        mockMvc.post("/api/venues/{venueId}/bookings", venueId) {
+            with(jwtFor(guestB))
+            content = jsonMapper.writeValueAsString(
+                mapOf("slotId" to slotB.toString(), "areaId" to areaId.toString()),
+            )
+            contentType = APPLICATION_JSON
+            accept = APPLICATION_JSON
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.status", `is`("REQUESTED"))
+        }
     }
 
     test("should reject publishing priced slot when payouts are not ready") {

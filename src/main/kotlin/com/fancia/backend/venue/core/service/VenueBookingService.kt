@@ -15,17 +15,17 @@ import com.fancia.backend.shared.venue.core.exception.VenueBookingAccessDeniedEx
 import com.fancia.backend.shared.venue.core.exception.VenueBookingInvalidStateException
 import com.fancia.backend.shared.venue.core.exception.VenueBookingNotFoundException
 import com.fancia.backend.shared.venue.core.exception.VenueNotFoundException
-import com.fancia.backend.shared.venue.core.exception.VenueSlotAreaNotFoundException
-import com.fancia.backend.shared.venue.core.exception.VenueSlotAreaSoldOutException
+import com.fancia.backend.shared.venue.core.exception.VenueAreaNotFoundException
+import com.fancia.backend.shared.venue.core.exception.VenueAreaSoldOutException
 import com.fancia.backend.shared.venue.core.exception.VenueSlotInvalidStateException
 import com.fancia.backend.shared.venue.core.exception.VenueSlotNotFoundException
 import com.fancia.backend.venue.core.entity.Venue
+import com.fancia.backend.venue.core.entity.VenueArea
 import com.fancia.backend.venue.core.entity.VenueBooking
 import com.fancia.backend.venue.core.entity.VenueSlot
-import com.fancia.backend.venue.core.entity.VenueSlotArea
+import com.fancia.backend.venue.core.repository.VenueAreaRepository
 import com.fancia.backend.venue.core.repository.VenueBookingRepository
 import com.fancia.backend.venue.core.repository.VenueRepository
-import com.fancia.backend.venue.core.repository.VenueSlotAreaRepository
 import com.fancia.backend.venue.core.repository.VenueSlotRepository
 import com.fancia.backend.venue.external.PaymentInternalClient
 import com.fancia.backend.venue.mapper.markPaid
@@ -47,8 +47,8 @@ class VenueBookingService(
     private val venueRepository: VenueRepository,
     private val venueSlotRepository: VenueSlotRepository,
     private val venueBookingRepository: VenueBookingRepository,
-    private val venueSlotAreaRepository: VenueSlotAreaRepository,
-    private val venueSlotAreaService: VenueSlotAreaService,
+    private val venueAreaRepository: VenueAreaRepository,
+    private val venueAreaService: VenueAreaService,
     private val paymentInternalClient: PaymentInternalClient,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -56,7 +56,9 @@ class VenueBookingService(
         VenueBookingStatus.REQUESTED,
         VenueBookingStatus.APPROVED,
     )
-    private val claimedSeatStatuses = setOf(
+    /** Area inventory is held across overlapping slot windows, including open requests. */
+    private val areaHoldStatuses = setOf(
+        VenueBookingStatus.REQUESTED,
         VenueBookingStatus.APPROVED,
         VenueBookingStatus.PAID,
         VenueBookingStatus.COMPLETED,
@@ -93,7 +95,7 @@ class VenueBookingService(
             )
         }
 
-        val usesAreas = venueSlotAreaService.slotUsesAreas(slot.id!!)
+        val usesAreas = venueAreaService.venueUsesAreas(venueId)
         val booking = VenueBooking().apply {
             this.venue = venue
             this.slot = slot
@@ -104,10 +106,10 @@ class VenueBookingService(
 
         if (usesAreas) {
             val areaId = request.areaId
-                ?: throw VenueBookingInvalidStateException(message = "areaId is required for this slot")
-            val area = venueSlotAreaRepository.findByIdAndSlotId(areaId, slot.id!!)
-                .orElseThrow { VenueSlotAreaNotFoundException(areaId) }
-            assertAreaCapacityAvailable(area)
+                ?: throw VenueBookingInvalidStateException(message = "areaId is required for this venue")
+            val area = venueAreaRepository.findByIdAndVenueId(areaId, venueId)
+                .orElseThrow { VenueAreaNotFoundException(areaId) }
+            assertAreaCapacityAvailable(slot, area)
             venueBookingRepository
                 .findByRequesterUserIdAndSlotIdAndAreaIdAndStatusIn(
                     userId,
@@ -117,7 +119,7 @@ class VenueBookingService(
                 )
                 .ifPresent {
                     throw VenueBookingInvalidStateException(
-                        message = "You already have an open booking for this area",
+                        message = "You already have an open booking for this area on this slot",
                         bookingId = it.id,
                     )
                 }
@@ -126,7 +128,7 @@ class VenueBookingService(
             booking.currency = area.currency
         } else {
             if (request.areaId != null) {
-                throw VenueBookingInvalidStateException(message = "This slot does not use bookable areas")
+                throw VenueBookingInvalidStateException(message = "This venue does not use bookable areas")
             }
             venueBookingRepository
                 .findByRequesterUserIdAndSlotIdAndStatusIn(userId, slot.id!!, openRequesterStatuses)
@@ -162,7 +164,7 @@ class VenueBookingService(
             )
         }
 
-        booking.area?.let { assertAreaCapacityAvailable(it) }
+        booking.area?.let { assertAreaCapacityAvailable(slot, it, excludeBookingId = booking.id) }
 
         if (booking.priceMinor == 0L) {
             fulfillBooking(booking, sessionId = null)
@@ -346,7 +348,7 @@ class VenueBookingService(
 
         if (isAreaBooking) {
             val area = booking.area!!
-            assertAreaCapacityAvailable(area)
+            assertAreaCapacityAvailable(slot, area, excludeBookingId = booking.id)
             if (slot.status != VenueSlotStatus.PUBLISHED) {
                 booking.status = VenueBookingStatus.EXPIRED
                 venueBookingRepository.save(booking)
@@ -386,11 +388,21 @@ class VenueBookingService(
             }
     }
 
-    private fun assertAreaCapacityAvailable(area: VenueSlotArea) {
+    private fun assertAreaCapacityAvailable(
+        slot: VenueSlot,
+        area: VenueArea,
+        excludeBookingId: UUID? = null,
+    ) {
         val capacity = area.capacity ?: return
-        val claimed = venueBookingRepository.countClaimedSeats(area.id!!, claimedSeatStatuses)
+        val claimed = venueBookingRepository.countClaimedSeatsOverlapping(
+            areaId = area.id!!,
+            startTime = slot.startTime,
+            endTime = slot.endTime,
+            statuses = areaHoldStatuses,
+            excludeBookingId = excludeBookingId,
+        )
         if (claimed >= capacity) {
-            throw VenueSlotAreaSoldOutException(area.id)
+            throw VenueAreaSoldOutException(area.id)
         }
     }
 

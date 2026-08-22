@@ -11,18 +11,18 @@ import jakarta.persistence.UniqueConstraint
 
 @Entity
 @Table(
-    name = "venue_slot_areas",
+    name = "venue_areas",
     uniqueConstraints = [
         UniqueConstraint(
-            name = "uk_venue_slot_areas_slot_name",
-            columnNames = ["slot_id", "name"],
+            name = "uk_venue_areas_venue_name",
+            columnNames = ["venue_id", "name"],
         ),
     ],
 )
-class VenueSlotArea : AbstractEntity() {
+class VenueArea : AbstractEntity() {
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
-    @JoinColumn(name = "slot_id", nullable = false)
-    var slot: VenueSlot? = null
+    @JoinColumn(name = "venue_id", nullable = false)
+    var venue: Venue? = null
 
     @Column(nullable = false, length = 255)
     var name: String = ""

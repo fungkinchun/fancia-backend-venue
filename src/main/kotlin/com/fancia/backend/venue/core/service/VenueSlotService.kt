@@ -31,7 +31,7 @@ import java.util.UUID
 class VenueSlotService(
     private val venueRepository: VenueRepository,
     private val venueSlotRepository: VenueSlotRepository,
-    private val venueSlotAreaService: VenueSlotAreaService,
+    private val venueAreaService: VenueAreaService,
     private val paymentInternalClient: PaymentInternalClient,
 ) {
     @Transactional(readOnly = true)
@@ -92,8 +92,8 @@ class VenueSlotService(
         }
         validateWindow(slot.startTime, slot.endTime)
         requireNoPublishedOverlap(venueId, slot)
-        venueSlotAreaService.validateAreasReadyForPublish(slot, userId)
-        val usesAreas = venueSlotAreaService.slotUsesAreas(slot.id!!)
+        venueAreaService.validateAreasReadyForPublish(venue, userId)
+        val usesAreas = venueAreaService.venueUsesAreas(venueId)
         if (!usesAreas && slot.priceMinor > 0) {
             requireOwnerPayoutReady(venue, userId)
         }
