@@ -11,6 +11,7 @@ fun Venue.toDto(): VenueResponse =
     VenueResponse(
         id = this@toDto.id,
         name = this@toDto.name,
+        slug = this@toDto.slug,
         description = this@toDto.description,
         createdBy = this@toDto.createdBy,
         createdAt = this@toDto.createdAt,
@@ -34,6 +35,7 @@ fun VenueResponse.toEntity(): Venue =
     Venue().apply {
         id = this@toEntity.id
         name = this@toEntity.name
+        slug = this@toEntity.slug
         description = this@toEntity.description
         createdBy = this@toEntity.createdBy
         createdAt = this@toEntity.createdAt

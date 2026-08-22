@@ -11,6 +11,9 @@ class Venue : AbstractEntity() {
     @Column(nullable = false, length = 255)
     var name: String = ""
 
+    @Column(nullable = false, length = 255)
+    var slug: String = ""
+
     @Column(nullable = false, length = 4000)
     var description: String = ""
 

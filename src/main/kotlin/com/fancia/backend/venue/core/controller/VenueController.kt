@@ -69,10 +69,10 @@ class VenueController(
         return ResponseEntity.ok(venueService.update(id, request, jwt))
     }
 
-    @GetMapping("/{id}")
-    @Operation(summary = "Get venue by id")
-    fun getVenue(@PathVariable id: UUID): ResponseEntity<VenueResponse> {
-        return ResponseEntity.ok(venueService.findById(id))
+    @GetMapping("/{ref}")
+    @Operation(summary = "Get venue by id or slug")
+    fun getVenue(@PathVariable ref: String): ResponseEntity<VenueResponse> {
+        return ResponseEntity.ok(venueService.findByIdOrSlug(ref))
     }
 
     @GetMapping

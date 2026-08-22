@@ -104,6 +104,7 @@ class VenueControllerIntegrationTest(
             .andExpect {
                 status { isOk() }
                 jsonPath("$.name", `is`("testVenue"))
+                jsonPath("$.slug", `is`("testvenue"))
                 jsonPath("$.id", `is`(notNullValue()))
                 jsonPath("$.links.length()", `is`(2))
                 jsonPath("$.links[0].type", `is`("WEBSITE"))
@@ -168,6 +169,27 @@ class VenueControllerIntegrationTest(
             .andExpect {
                 status { isOk() }
                 jsonPath("$.totalElements", `is`(0))
+            }
+    }
+
+    test("should get venue by id and by slug") {
+        val venue = venueRepository.findAll().first { it.name == "testVenue" }
+        mockMvc
+            .get("/api/venues/${venue.id}") {
+                accept = APPLICATION_JSON
+            }
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.slug", `is`("testvenue"))
+            }
+        mockMvc
+            .get("/api/venues/${venue.slug}") {
+                accept = APPLICATION_JSON
+            }
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.id", `is`(venue.id!!.toString()))
+                jsonPath("$.slug", `is`("testvenue"))
             }
     }
 

@@ -1,6 +1,7 @@
 package com.fancia.backend.venue.core.service
 
 import com.fancia.backend.shared.common.core.exception.InvalidAuthenticationException
+import com.fancia.backend.shared.common.core.utils.Slugify
 import com.fancia.backend.shared.common.social.core.entity.Link
 import com.fancia.backend.shared.common.tag.core.dto.CreateTagsRequest
 import com.fancia.backend.shared.common.tag.core.dto.TagItemRequest
@@ -36,6 +37,20 @@ class VenueService(
         return venueRepository.findById(id)
             .map { it.toDto() }
             .orElseThrow { VenueNotFoundException(id) }
+    }
+
+    fun findByIdOrSlug(ref: String): VenueResponse {
+        return resolveByIdOrSlug(ref).toDto()
+    }
+
+    fun resolveByIdOrSlug(ref: String): Venue {
+        val trimmed = ref.trim()
+        if (trimmed.isEmpty()) throw VenueNotFoundException(ref)
+        val asUuid = runCatching { UUID.fromString(trimmed) }.getOrNull()
+        if (asUuid != null) {
+            return venueRepository.findById(asUuid).orElseThrow { VenueNotFoundException(asUuid) }
+        }
+        return venueRepository.findBySlug(trimmed).orElseThrow { VenueNotFoundException(trimmed) }
     }
 
     fun findAll(
@@ -121,6 +136,7 @@ class VenueService(
             ?: throw InvalidAuthenticationException()
         request.toEntity().let { it ->
             it.createdBy = currentUserId
+            it.slug = allocateVenueSlug(request.name, request.location?.city)
             applyTags(it.tags, request.tags)
             it.links.clear()
             it.links.addAll(request.links.map { link -> Link(type = link.type, url = link.url) })
@@ -164,6 +180,13 @@ class VenueService(
             size = requestTags.size,
         ).content.mapNotNull { it.id }
         tags.addAll(resolved)
+    }
+
+    private fun allocateVenueSlug(name: String, city: String?): String {
+        val base = listOfNotNull(name.trim().ifBlank { null }, city?.trim()?.ifBlank { null })
+            .joinToString("-")
+            .ifBlank { name }
+        return Slugify.allocateUnique(base, fallback = "venue") { venueRepository.existsBySlug(it) }
     }
 
     private data class VenueIdFilter(

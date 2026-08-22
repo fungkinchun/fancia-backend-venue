@@ -94,4 +94,8 @@ interface VenueRepository : JpaRepository<Venue, UUID> {
         @Param("venueIds") venueIds: Collection<UUID>,
         pageable: Pageable,
     ): Page<Venue>
+
+    fun findBySlug(slug: String): Optional<Venue>
+
+    fun existsBySlug(slug: String): Boolean
 }
