@@ -9,6 +9,7 @@ import com.fancia.backend.shared.venue.core.dto.UpdateVenueRequest
 import com.fancia.backend.shared.venue.core.dto.VenueResponse
 import com.fancia.backend.shared.venue.core.exception.VenueNotFoundException
 import com.fancia.backend.shared.venue.core.exception.VenueStaffNotFoundException
+import com.fancia.backend.venue.core.entity.Venue
 import com.fancia.backend.venue.core.repository.VenueRepository
 import com.fancia.backend.venue.core.support.VenueLocationSupport
 import com.fancia.backend.venue.external.CommonServiceClient

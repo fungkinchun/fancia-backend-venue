@@ -3,6 +3,7 @@ package com.fancia.backend.venue
 import com.fancia.backend.venue.core.repository.VenueRepository
 import com.fancia.backend.venue.core.repository.VenueSlotRepository
 import io.kotest.core.spec.style.FunSpec
+import com.github.tomakehurst.wiremock.client.WireMock.aResponse
 import com.github.tomakehurst.wiremock.client.WireMock.configureFor
 import com.github.tomakehurst.wiremock.client.WireMock.post
 import com.github.tomakehurst.wiremock.client.WireMock.stubFor
