@@ -18,6 +18,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories
     basePackages = [
         "com.fancia.backend.venue.core",
         "com.fancia.backend.shared.common.core.entity",
+        "com.fancia.backend.shared.event.core.entity",
     ]
 )
 @EnableJpaRepositories(

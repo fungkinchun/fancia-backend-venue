@@ -24,6 +24,10 @@ class VenueBooking : AbstractEntity() {
     @JoinColumn(name = "slot_id", nullable = false)
     var slot: VenueSlot? = null
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "area_id")
+    var area: VenueSlotArea? = null
+
     @Column(name = "requester_user_id", nullable = false)
     var requesterUserId: UUID? = null
 

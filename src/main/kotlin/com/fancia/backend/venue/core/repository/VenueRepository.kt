@@ -21,6 +21,7 @@ interface VenueRepository : JpaRepository<Venue, UUID> {
         OR trgm_word_similarity(:description, v.description) = true
     )
     AND (:filterByTagIds = false OR EXISTS (SELECT tag FROM v.tags tag WHERE tag IN :tagIds))
+    AND (:filterByVenueIds = false OR v.id IN :venueIds)
     GROUP BY v
 """,
     )
@@ -29,12 +30,23 @@ interface VenueRepository : JpaRepository<Venue, UUID> {
         @Param("description") description: String,
         @Param("filterByTagIds") filterByTagIds: Boolean,
         @Param("tagIds") tagIds: Collection<UUID>,
+        @Param("filterByVenueIds") filterByVenueIds: Boolean,
+        @Param("venueIds") venueIds: Collection<UUID>,
         pageable: Pageable,
     ): Page<Venue>
 
-    @Query("SELECT DISTINCT v FROM Venue v JOIN v.tags tag WHERE tag IN :tagIds")
+    @Query("SELECT DISTINCT v FROM Venue v JOIN v.tags tag WHERE tag IN :tagIds AND (:filterByVenueIds = false OR v.id IN :venueIds)")
     fun findByTagIdIn(
         @Param("tagIds") tagIds: Collection<UUID>,
+        @Param("filterByVenueIds") filterByVenueIds: Boolean,
+        @Param("venueIds") venueIds: Collection<UUID>,
+        pageable: Pageable,
+    ): Page<Venue>
+
+    @Query("SELECT v FROM Venue v WHERE (:filterByVenueIds = false OR v.id IN :venueIds)")
+    fun findAllFiltered(
+        @Param("filterByVenueIds") filterByVenueIds: Boolean,
+        @Param("venueIds") venueIds: Collection<UUID>,
         pageable: Pageable,
     ): Page<Venue>
 
@@ -54,6 +66,7 @@ interface VenueRepository : JpaRepository<Venue, UUID> {
                 geography(ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)),
                 :radiusMeters
               )
+              AND (:filterByVenueIds = false OR v.id IN (:venueIds))
             ORDER BY ST_Distance(
                 geography(ST_SetSRID(ST_MakePoint(v.longitude, v.latitude), 4326)),
                 geography(ST_SetSRID(ST_MakePoint(:lng, :lat), 4326))
@@ -69,6 +82,7 @@ interface VenueRepository : JpaRepository<Venue, UUID> {
                 geography(ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)),
                 :radiusMeters
               )
+              AND (:filterByVenueIds = false OR v.id IN (:venueIds))
         """,
         nativeQuery = true,
     )
@@ -76,6 +90,8 @@ interface VenueRepository : JpaRepository<Venue, UUID> {
         @Param("lat") lat: Double,
         @Param("lng") lng: Double,
         @Param("radiusMeters") radiusMeters: Double,
+        @Param("filterByVenueIds") filterByVenueIds: Boolean,
+        @Param("venueIds") venueIds: Collection<UUID>,
         pageable: Pageable,
     ): Page<Venue>
 }

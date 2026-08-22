@@ -39,4 +39,19 @@ interface VenueSlotRepository : JpaRepository<VenueSlot, UUID> {
         @Param("endTime") endTime: LocalDateTime,
         @Param("excludeId") excludeId: UUID?,
     ): Boolean
+
+    @Query(
+        """
+        SELECT DISTINCT s.venue.id
+        FROM VenueSlot s
+        WHERE s.status = :status
+          AND s.endTime > :from
+          AND (:to IS NULL OR s.startTime < :to)
+        """,
+    )
+    fun findVenueIdsWithPublishedSlots(
+        @Param("status") status: VenueSlotStatus,
+        @Param("from") from: LocalDateTime,
+        @Param("to") to: LocalDateTime?,
+    ): List<UUID>
 }

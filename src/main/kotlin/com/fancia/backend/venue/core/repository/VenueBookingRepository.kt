@@ -29,6 +29,25 @@ interface VenueBookingRepository : JpaRepository<VenueBooking, UUID> {
         statuses: Collection<VenueBookingStatus>,
     ): Optional<VenueBooking>
 
+    fun findByRequesterUserIdAndSlotIdAndAreaIdAndStatusIn(
+        requesterUserId: UUID,
+        slotId: UUID,
+        areaId: UUID,
+        statuses: Collection<VenueBookingStatus>,
+    ): Optional<VenueBooking>
+
+    @Query(
+        """
+        select count(b) from VenueBooking b
+        where b.area.id = :areaId
+          and b.status in :statuses
+        """,
+    )
+    fun countClaimedSeats(
+        @Param("areaId") areaId: UUID,
+        @Param("statuses") statuses: Collection<VenueBookingStatus>,
+    ): Long
+
     @Query(
         """
         select b from VenueBooking b

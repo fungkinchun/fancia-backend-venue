@@ -121,10 +121,10 @@ class VenueBookingControllerIntegrationTest(
         return UUID.fromString(jsonMapper.readTree(body).get("id").asText())
     }
 
-    fun createAndPublishSlot(
+    fun createDraftSlot(
         venueId: UUID,
         ownerId: UUID,
-        priceMinor: Long,
+        priceMinor: Long = 0,
         start: String = "2030-06-01T10:00:00",
         end: String = "2030-06-01T12:00:00",
     ): UUID {
@@ -143,10 +143,11 @@ class VenueBookingControllerIntegrationTest(
         }.andExpect {
             status { isOk() }
             jsonPath("$.status", `is`("DRAFT"))
-            jsonPath("$.priceMinor", `is`(priceMinor.toInt()))
         }.andReturn().response.contentAsString
-        val slotId = UUID.fromString(jsonMapper.readTree(createBody).get("id").asText())
+        return UUID.fromString(jsonMapper.readTree(createBody).get("id").asText())
+    }
 
+    fun publishSlot(venueId: UUID, ownerId: UUID, slotId: UUID) {
         mockMvc.post("/api/venues/{venueId}/slots/{slotId}/publish", venueId, slotId) {
             with(jwtFor(ownerId))
             accept = APPLICATION_JSON
@@ -154,6 +155,17 @@ class VenueBookingControllerIntegrationTest(
             status { isOk() }
             jsonPath("$.status", `is`("PUBLISHED"))
         }
+    }
+
+    fun createAndPublishSlot(
+        venueId: UUID,
+        ownerId: UUID,
+        priceMinor: Long,
+        start: String = "2030-06-01T10:00:00",
+        end: String = "2030-06-01T12:00:00",
+    ): UUID {
+        val slotId = createDraftSlot(venueId, ownerId, priceMinor, start, end)
+        publishSlot(venueId, ownerId, slotId)
         return slotId
     }
 
@@ -187,6 +199,52 @@ class VenueBookingControllerIntegrationTest(
 
         venueSlotRepository.findById(slotId).get().status.name shouldBe "BOOKED"
         venueBookingRepository.findById(bookingId).get().status.name shouldBe "PAID"
+    }
+
+    test("should book a specific area on a slot without marking the whole slot booked") {
+        val ownerId = UUID.randomUUID()
+        val guestId = UUID.randomUUID()
+        val venueId = createVenue(ownerId)
+        stubPayoutReady(ownerId, ready = true)
+        val slotId = createDraftSlot(venueId, ownerId)
+
+        val vipBody = mockMvc.post("/api/venues/{venueId}/slots/{slotId}/areas", venueId, slotId) {
+            with(jwtFor(ownerId))
+            content = jsonMapper.writeValueAsString(
+                mapOf("name" to "VIP", "priceMinor" to 12000, "currency" to "gbp", "capacity" to 200),
+            )
+            contentType = APPLICATION_JSON
+            accept = APPLICATION_JSON
+        }.andExpect { status { isOk() } }.andReturn().response.contentAsString
+        val vipAreaId = UUID.fromString(jsonMapper.readTree(vipBody).get("id").asText())
+
+        mockMvc.post("/api/venues/{venueId}/slots/{slotId}/areas", venueId, slotId) {
+            with(jwtFor(ownerId))
+            content = jsonMapper.writeValueAsString(
+                mapOf("name" to "Standard", "priceMinor" to 4500, "currency" to "gbp", "capacity" to 5000),
+            )
+            contentType = APPLICATION_JSON
+            accept = APPLICATION_JSON
+        }.andExpect { status { isOk() } }
+
+        publishSlot(venueId, ownerId, slotId)
+
+        mockMvc.post("/api/venues/{venueId}/bookings", venueId) {
+            with(jwtFor(guestId))
+            content = jsonMapper.writeValueAsString(
+                mapOf("slotId" to slotId.toString(), "areaId" to vipAreaId.toString()),
+            )
+            contentType = APPLICATION_JSON
+            accept = APPLICATION_JSON
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.status", `is`("REQUESTED"))
+            jsonPath("$.areaId", `is`(vipAreaId.toString()))
+            jsonPath("$.areaName", `is`("VIP"))
+            jsonPath("$.priceMinor", `is`(12000))
+        }
+
+        venueSlotRepository.findById(slotId).get().status.name shouldBe "PUBLISHED"
     }
 
     test("should reject publishing priced slot when payouts are not ready") {

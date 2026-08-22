@@ -10,6 +10,8 @@ fun VenueBooking.toDto(): VenueBookingResponse =
         id = id,
         venueId = venue!!.id!!,
         slotId = slot!!.id!!,
+        areaId = area?.id,
+        areaName = area?.name,
         requesterUserId = requesterUserId!!,
         status = status,
         priceMinor = priceMinor,
@@ -23,6 +25,7 @@ fun VenueBooking.toDto(): VenueBookingResponse =
 fun VenueBooking.toCheckoutSnapshot(ownerUserId: java.util.UUID): VenueBookingCheckoutSnapshot {
     val slot = slot!!
     val venue = venue!!
+    val areaName = area?.name
     return VenueBookingCheckoutSnapshot(
         bookingId = id!!,
         venueId = venue.id!!,
@@ -32,7 +35,8 @@ fun VenueBooking.toCheckoutSnapshot(ownerUserId: java.util.UUID): VenueBookingCh
         status = status,
         priceMinor = priceMinor,
         currency = currency,
-        productName = "Venue slot ${slot.startTime} – ${slot.endTime}",
+        productName = areaName?.let { "$it — ${slot.startTime} – ${slot.endTime}" }
+            ?: "Venue slot ${slot.startTime} – ${slot.endTime}",
     )
 }
 

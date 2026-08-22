@@ -14,6 +14,7 @@ import jakarta.validation.Valid
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.web.PageableDefault
+import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.oauth2.jwt.Jwt
@@ -102,10 +103,36 @@ class VenueController(
         @RequestParam(required = false)
         @Parameter(description = "Search radius in kilometres (required with lat/lng for proximity search)")
         radiusKm: Double? = null,
+        @RequestParam(required = false, defaultValue = "false")
+        @Parameter(description = "When true, only venues with published bookable slots in the availability window")
+        hasPublishedSlots: Boolean = false,
+        @RequestParam(required = false, defaultValue = "false")
+        @Parameter(description = "When true, only venues hosting upcoming public events in the availability window")
+        hasUpcomingEvents: Boolean = false,
+        @RequestParam(required = false)
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+        @Parameter(description = "Availability window start (defaults to now)")
+        availableFrom: java.time.LocalDateTime? = null,
+        @RequestParam(required = false)
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+        @Parameter(description = "Availability window end (exclusive)")
+        availableTo: java.time.LocalDateTime? = null,
         @PageableDefault(size = 20)
         pageable: Pageable
     ): ResponseEntity<Page<VenueResponse>> {
-        val venues = venueService.findAll(name, description, tagIds, lat, lng, radiusKm, pageable)
+        val venues = venueService.findAll(
+            name,
+            description,
+            tagIds,
+            lat,
+            lng,
+            radiusKm,
+            hasPublishedSlots,
+            hasUpcomingEvents,
+            availableFrom,
+            availableTo,
+            pageable,
+        )
         return ResponseEntity.ok(venues)
     }
 }

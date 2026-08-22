@@ -9,7 +9,6 @@ import com.fancia.backend.shared.venue.core.dto.UpdateVenueRequest
 import com.fancia.backend.shared.venue.core.dto.VenueResponse
 import com.fancia.backend.shared.venue.core.exception.VenueNotFoundException
 import com.fancia.backend.shared.venue.core.exception.VenueStaffNotFoundException
-import com.fancia.backend.venue.core.entity.Venue
 import com.fancia.backend.venue.core.repository.VenueRepository
 import com.fancia.backend.venue.core.support.VenueLocationSupport
 import com.fancia.backend.venue.external.CommonServiceClient
@@ -17,10 +16,12 @@ import com.fancia.backend.venue.mapper.toDto
 import com.fancia.backend.venue.mapper.toEntity
 import jakarta.validation.Valid
 import org.springframework.data.domain.Page
+import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDateTime
 import java.util.*
 
 @Service
@@ -28,6 +29,7 @@ class VenueService(
     private val venueRepository: VenueRepository,
     private val venueStaffService: VenueStaffService,
     private val commonServiceClient: CommonServiceClient,
+    private val venueBrowseConstraintResolver: VenueBrowseConstraintResolver,
 ) {
     fun findById(id: UUID): VenueResponse {
         return venueRepository.findById(id)
@@ -42,11 +44,36 @@ class VenueService(
         latitude: Double?,
         longitude: Double?,
         radiusKm: Double?,
-        pageable: Pageable
+        hasPublishedSlots: Boolean,
+        hasUpcomingEvents: Boolean,
+        availableFrom: LocalDateTime?,
+        availableTo: LocalDateTime?,
+        pageable: Pageable,
     ): Page<VenueResponse> {
+        val windowFrom = availableFrom ?: LocalDateTime.now()
+        val venueConstraints = venueBrowseConstraintResolver.resolve(
+            hasPublishedSlots = hasPublishedSlots,
+            hasUpcomingEvents = hasUpcomingEvents,
+            from = windowFrom,
+            to = availableTo,
+        )
+        if (venueConstraints != null && venueConstraints.isEmpty()) {
+            return PageImpl(emptyList(), pageable, 0)
+        }
+
+        val venueIdFilter = VenueIdFilter.from(venueConstraints)
+
         if (latitude != null && longitude != null && radiusKm != null) {
             val radiusMeters = radiusKm * 1000
-            return venueRepository.findNearby(latitude, longitude, radiusMeters, pageable)
+            return venueRepository
+                .findNearby(
+                    latitude,
+                    longitude,
+                    radiusMeters,
+                    venueIdFilter.active,
+                    venueIdFilter.ids,
+                    pageable,
+                )
                 .map { it.toDto() }
         }
         val trimmedName = name?.trim().orEmpty()
@@ -54,9 +81,20 @@ class VenueService(
         val hasText = trimmedName.isNotEmpty() || trimmedDescription.isNotEmpty()
         val hasTagIds = !tagIds.isNullOrEmpty()
         val venues = when {
-            !hasText && !hasTagIds -> venueRepository.findAll(pageable)
+            !hasText && !hasTagIds ->
+                venueRepository.findAllFiltered(
+                    venueIdFilter.active,
+                    venueIdFilter.ids,
+                    pageable,
+                )
+
             !hasText && hasTagIds ->
-                venueRepository.findByTagIdIn(tagIds!!, pageable)
+                venueRepository.findByTagIdIn(
+                    tagIds!!,
+                    venueIdFilter.active,
+                    venueIdFilter.ids,
+                    pageable,
+                )
 
             else ->
                 venueRepository.search(
@@ -64,6 +102,8 @@ class VenueService(
                     trimmedDescription,
                     hasTagIds,
                     tagIds.orEmpty(),
+                    venueIdFilter.active,
+                    venueIdFilter.ids,
                     pageable,
                 )
         }
@@ -123,5 +163,21 @@ class VenueService(
             size = requestTags.size,
         ).content.mapNotNull { it.id }
         tags.addAll(resolved)
+    }
+
+    private data class VenueIdFilter(
+        val active: Boolean,
+        val ids: List<UUID>,
+    ) {
+        companion object {
+            private val PLACEHOLDER = UUID(0L, 0L)
+
+            fun from(constraints: Set<UUID>?): VenueIdFilter {
+                if (constraints == null) {
+                    return VenueIdFilter(active = false, ids = listOf(PLACEHOLDER))
+                }
+                return VenueIdFilter(active = true, ids = constraints.toList())
+            }
+        }
     }
 }

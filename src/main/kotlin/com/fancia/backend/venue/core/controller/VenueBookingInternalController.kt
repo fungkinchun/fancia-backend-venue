@@ -1,5 +1,6 @@
 package com.fancia.backend.venue.core.controller
 
+import com.fancia.backend.shared.payment.core.dto.ConfirmConnectCheckoutPaidRequest
 import com.fancia.backend.shared.venue.core.dto.VenueBookingCheckoutSnapshot
 import com.fancia.backend.shared.venue.core.dto.VenueBookingResponse
 import com.fancia.backend.venue.core.service.VenueBookingService
@@ -13,10 +14,6 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
-
-data class ConfirmVenueBookingPaidRequest(
-    val checkoutSessionId: String? = null,
-)
 
 @RestController
 @RequestMapping("/internal/venue-bookings")
@@ -33,7 +30,7 @@ class VenueBookingInternalController(
     @PostMapping("/{bookingId}/paid")
     fun confirmPaid(
         @PathVariable bookingId: UUID,
-        @RequestBody(required = false) request: ConfirmVenueBookingPaidRequest?,
+        @RequestBody(required = false) request: ConfirmConnectCheckoutPaidRequest?,
     ): ResponseEntity<VenueBookingResponse> =
         ResponseEntity.ok(
             venueBookingService.confirmPaid(bookingId, request?.checkoutSessionId),
