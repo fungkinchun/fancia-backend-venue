@@ -7,18 +7,9 @@ import jakarta.persistence.FetchType
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
-import jakarta.persistence.UniqueConstraint
 
 @Entity
-@Table(
-    name = "venue_areas",
-    uniqueConstraints = [
-        UniqueConstraint(
-            name = "uk_venue_areas_venue_name",
-            columnNames = ["venue_id", "name"],
-        ),
-    ],
-)
+@Table(name = "venue_areas")
 class VenueArea : AbstractEntity() {
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "venue_id", nullable = false)

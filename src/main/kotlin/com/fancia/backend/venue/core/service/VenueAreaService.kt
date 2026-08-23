@@ -4,11 +4,13 @@ import com.fancia.backend.shared.common.core.exception.InvalidAuthenticationExce
 import com.fancia.backend.shared.venue.core.dto.CreateVenueAreaRequest
 import com.fancia.backend.shared.venue.core.dto.UpdateVenueAreaRequest
 import com.fancia.backend.shared.venue.core.dto.VenueAreaResponse
+import com.fancia.backend.shared.venue.core.exception.VenueAreaNameAlreadyExistsException
 import com.fancia.backend.shared.venue.core.exception.VenueAreaNotFoundException
 import com.fancia.backend.shared.venue.core.exception.VenueNotFoundException
 import com.fancia.backend.shared.venue.core.exception.VenueOwnerPayoutNotReadyException
 import com.fancia.backend.shared.venue.core.exception.VenueSlotAccessDeniedException
 import com.fancia.backend.venue.core.entity.Venue
+import com.fancia.backend.venue.core.entity.VenueArea
 import com.fancia.backend.venue.core.repository.VenueAreaRepository
 import com.fancia.backend.venue.core.repository.VenueRepository
 import com.fancia.backend.venue.external.PaymentInternalClient
@@ -45,6 +47,7 @@ class VenueAreaService(
         if (request.priceMinor > 0) {
             requireOwnerPayoutReady(venue, userId)
         }
+        requireUniqueAreaName(venueId, request.name.trim())
         val area = request.toEntity(venue).also { it.createdBy = userId }
         return venueAreaRepository.save(area).toDto()
     }
@@ -59,6 +62,10 @@ class VenueAreaService(
         val userId = jwt.userId()
         val venue = requireOwnedVenue(venueId, userId)
         val area = requireArea(venueId, areaId)
+        val nextName = request.name?.trim()
+        if (!nextName.isNullOrEmpty() && !nextName.equals(area.name, ignoreCase = true)) {
+            requireUniqueAreaName(venueId, nextName, excludeAreaId = areaId)
+        }
         request.applyTo(area)
         if (area.priceMinor > 0) {
             requireOwnerPayoutReady(venue, userId)
@@ -86,7 +93,22 @@ class VenueAreaService(
         }
     }
 
-    private fun requireArea(venueId: UUID, areaId: UUID) =
+    private fun requireUniqueAreaName(
+        venueId: UUID,
+        name: String,
+        excludeAreaId: UUID? = null,
+    ) {
+        val taken = if (excludeAreaId == null) {
+            venueAreaRepository.existsByVenueIdAndNameIgnoreCase(venueId, name)
+        } else {
+            venueAreaRepository.existsByVenueIdAndNameIgnoreCaseAndIdNot(venueId, name, excludeAreaId)
+        }
+        if (taken) {
+            throw VenueAreaNameAlreadyExistsException(venueId, name)
+        }
+    }
+
+    private fun requireArea(venueId: UUID, areaId: UUID): VenueArea =
         venueAreaRepository.findByIdAndVenueId(areaId, venueId)
             .orElseThrow { VenueAreaNotFoundException(areaId) }
 

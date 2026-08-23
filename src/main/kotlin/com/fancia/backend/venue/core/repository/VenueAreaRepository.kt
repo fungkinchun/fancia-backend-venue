@@ -11,4 +11,8 @@ interface VenueAreaRepository : JpaRepository<VenueArea, UUID> {
     fun findByIdAndVenueId(id: UUID, venueId: UUID): Optional<VenueArea>
 
     fun existsByVenueId(venueId: UUID): Boolean
+
+    fun existsByVenueIdAndNameIgnoreCase(venueId: UUID, name: String): Boolean
+
+    fun existsByVenueIdAndNameIgnoreCaseAndIdNot(venueId: UUID, name: String, id: UUID): Boolean
 }
