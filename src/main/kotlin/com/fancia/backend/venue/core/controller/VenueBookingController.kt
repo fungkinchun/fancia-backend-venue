@@ -27,7 +27,7 @@ import java.util.UUID
 
 @RestController
 @RequestMapping("/api/venues/{venueId}/bookings")
-@Tag(name = "Venue Bookings", description = "Approve-then-pay bookings for published venue slots")
+@Tag(name = "Venue Bookings", description = "Venue slot booking endpoints")
 @SecurityRequirement(name = "bearerAuth")
 class VenueBookingController(
     private val venueBookingService: VenueBookingService,
@@ -58,7 +58,7 @@ class VenueBookingController(
     ): ResponseEntity<VenueBookingResponse> =
         ResponseEntity.ok(venueBookingService.request(venueId, request, jwt))
 
-    @Operation(summary = "Approve a booking request (owner). Free slots become paid immediately.")
+    @Operation(summary = "Accept a paid booking (owner)")
     @PostMapping("/{bookingId}/approve")
     fun approve(
         @PathVariable venueId: UUID,
@@ -67,7 +67,7 @@ class VenueBookingController(
     ): ResponseEntity<VenueBookingResponse> =
         ResponseEntity.ok(venueBookingService.approve(venueId, bookingId, jwt))
 
-    @Operation(summary = "Deny a booking request (owner)")
+    @Operation(summary = "Deny a booking (owner)")
     @PostMapping("/{bookingId}/deny")
     fun deny(
         @PathVariable venueId: UUID,
@@ -85,16 +85,7 @@ class VenueBookingController(
     ): ResponseEntity<VenueBookingResponse> =
         ResponseEntity.ok(venueBookingService.withdraw(venueId, bookingId, jwt))
 
-    @Operation(summary = "Cancel a booking (owner). Reopens a booked slot if it was paid.")
-    @PostMapping("/{bookingId}/cancel")
-    fun cancel(
-        @PathVariable venueId: UUID,
-        @PathVariable bookingId: UUID,
-        @AuthenticationPrincipal jwt: Jwt,
-    ): ResponseEntity<VenueBookingResponse> =
-        ResponseEntity.ok(venueBookingService.cancel(venueId, bookingId, jwt))
-
-    @Operation(summary = "Start Stripe Checkout for an approved paid booking")
+    @Operation(summary = "Start Stripe Checkout for a requested paid booking")
     @PostMapping("/{bookingId}/checkout")
     fun checkout(
         @PathVariable venueId: UUID,
@@ -103,13 +94,4 @@ class VenueBookingController(
         @AuthenticationPrincipal jwt: Jwt,
     ): ResponseEntity<ConnectCheckoutResponse> =
         ResponseEntity.ok(venueBookingService.checkout(venueId, bookingId, request, jwt))
-
-    @Operation(summary = "Mark a paid booking completed after the slot ends (owner)")
-    @PostMapping("/{bookingId}/complete")
-    fun complete(
-        @PathVariable venueId: UUID,
-        @PathVariable bookingId: UUID,
-        @AuthenticationPrincipal jwt: Jwt,
-    ): ResponseEntity<VenueBookingResponse> =
-        ResponseEntity.ok(venueBookingService.complete(venueId, bookingId, jwt))
 }

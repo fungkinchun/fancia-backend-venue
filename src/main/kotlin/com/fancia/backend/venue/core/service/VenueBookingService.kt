@@ -54,14 +54,25 @@ class VenueBookingService(
     private val log = LoggerFactory.getLogger(javaClass)
     private val openRequesterStatuses = setOf(
         VenueBookingStatus.REQUESTED,
-        VenueBookingStatus.APPROVED,
     )
-    /** Area inventory is held across overlapping slot windows, including open requests. */
+    private val activeBookingStatuses = setOf(
+        VenueBookingStatus.REQUESTED,
+        VenueBookingStatus.PAID,
+        VenueBookingStatus.ACCEPTED,
+    )
     private val areaHoldStatuses = setOf(
         VenueBookingStatus.REQUESTED,
-        VenueBookingStatus.APPROVED,
         VenueBookingStatus.PAID,
-        VenueBookingStatus.COMPLETED,
+        VenueBookingStatus.ACCEPTED,
+    )
+
+    private val hostAcceptableStatuses = setOf(
+        VenueBookingStatus.PAID,
+    )
+
+    private val hostDeniableStatuses = setOf(
+        VenueBookingStatus.PAID,
+        VenueBookingStatus.ACCEPTED,
     )
 
     @Transactional(readOnly = true)
@@ -115,7 +126,7 @@ class VenueBookingService(
                     userId,
                     slot.id!!,
                     areaId,
-                    openRequesterStatuses,
+                    activeBookingStatuses,
                 )
                 .ifPresent {
                     throw VenueBookingInvalidStateException(
@@ -131,7 +142,7 @@ class VenueBookingService(
                 throw VenueBookingInvalidStateException(message = "This venue does not use bookable areas")
             }
             venueBookingRepository
-                .findByRequesterUserIdAndSlotIdAndStatusIn(userId, slot.id!!, openRequesterStatuses)
+                .findByRequesterUserIdAndSlotIdAndStatusIn(userId, slot.id!!, activeBookingStatuses)
                 .ifPresent {
                     throw VenueBookingInvalidStateException(
                         message = "You already have an open booking for this slot",
@@ -142,7 +153,11 @@ class VenueBookingService(
             booking.currency = slot.currency
         }
 
-        return venueBookingRepository.save(booking).toDto()
+        val saved = venueBookingRepository.save(booking)
+        if (saved.priceMinor == 0L) {
+            fulfillBooking(saved, sessionId = null)
+        }
+        return saved.toDto()
     }
 
     @Transactional
@@ -150,27 +165,30 @@ class VenueBookingService(
         val userId = jwt.userId()
         requireOwnedVenue(venueId, userId)
         val booking = requireBooking(venueId, bookingId)
-        if (booking.status != VenueBookingStatus.REQUESTED) {
-            throw VenueBookingInvalidStateException(
-                message = "Only requested bookings can be approved",
-                bookingId = bookingId,
-            )
-        }
         val slot = booking.slot!!
-        if (slot.status != VenueSlotStatus.PUBLISHED) {
+        if (slot.status != VenueSlotStatus.PUBLISHED &&
+            booking.status != VenueBookingStatus.PAID
+        ) {
             throw VenueBookingInvalidStateException(
                 message = "Slot is no longer available",
                 bookingId = bookingId,
             )
         }
 
-        booking.area?.let { assertAreaCapacityAvailable(slot, it, excludeBookingId = booking.id) }
-
-        if (booking.priceMinor == 0L) {
-            fulfillBooking(booking, sessionId = null)
-        } else {
-            booking.status = VenueBookingStatus.APPROVED
-            venueBookingRepository.save(booking)
+        when {
+            booking.status in hostAcceptableStatuses -> {
+                booking.status = VenueBookingStatus.ACCEPTED
+                venueBookingRepository.save(booking)
+            }
+            booking.status == VenueBookingStatus.ACCEPTED -> Unit
+            else -> throw VenueBookingInvalidStateException(
+                message = when {
+                    booking.status == VenueBookingStatus.REQUESTED && booking.priceMinor > 0L ->
+                        "Guest must pay before the booking can be accepted"
+                    else -> "Booking cannot be accepted from status ${booking.status}"
+                },
+                bookingId = bookingId,
+            )
         }
         return booking.toDto()
     }
@@ -180,13 +198,19 @@ class VenueBookingService(
         val userId = jwt.userId()
         requireOwnedVenue(venueId, userId)
         val booking = requireBooking(venueId, bookingId)
-        if (booking.status != VenueBookingStatus.REQUESTED) {
+        if (booking.status !in hostDeniableStatuses) {
             throw VenueBookingInvalidStateException(
-                message = "Only requested bookings can be denied",
+                message = "Booking cannot be denied from status ${booking.status}",
                 bookingId = bookingId,
             )
         }
+        val wasPaid = booking.status == VenueBookingStatus.PAID ||
+            booking.status == VenueBookingStatus.ACCEPTED
+        refundPaidBookingOrThrow(booking, bookingId, action = "deny")
         booking.status = VenueBookingStatus.DENIED
+        if (wasPaid) {
+            releaseSlotIfWholeBooking(booking)
+        }
         return venueBookingRepository.save(booking).toDto()
     }
 
@@ -204,60 +228,6 @@ class VenueBookingService(
             )
         }
         booking.status = VenueBookingStatus.WITHDRAWN
-        return venueBookingRepository.save(booking).toDto()
-    }
-
-    @Transactional
-    fun cancel(venueId: UUID, bookingId: UUID, jwt: Jwt): VenueBookingResponse {
-        val userId = jwt.userId()
-        requireOwnedVenue(venueId, userId)
-        val booking = requireBooking(venueId, bookingId)
-        if (booking.status in setOf(
-                VenueBookingStatus.CANCELLED,
-                VenueBookingStatus.DENIED,
-                VenueBookingStatus.WITHDRAWN,
-                VenueBookingStatus.EXPIRED,
-            )
-        ) {
-            throw VenueBookingInvalidStateException(
-                message = "Booking cannot be cancelled from status ${booking.status}",
-                bookingId = bookingId,
-            )
-        }
-        val wasPaid = booking.status == VenueBookingStatus.PAID ||
-            booking.status == VenueBookingStatus.COMPLETED
-        val sessionId = booking.stripeCheckoutSessionId
-        booking.status = VenueBookingStatus.CANCELLED
-        if (wasPaid) {
-            val slot = booking.slot!!
-            val isWholeSlotBooking = booking.area == null
-            if (isWholeSlotBooking && slot.status == VenueSlotStatus.BOOKED) {
-                slot.status = VenueSlotStatus.PUBLISHED
-                venueSlotRepository.save(slot)
-            }
-            if (!sessionId.isNullOrBlank() && booking.priceMinor > 0) {
-                runCatching {
-                    paymentInternalClient.refundCheckout(RefundConnectCheckoutRequest(sessionId))
-                }.onFailure {
-                    log.error("Failed to refund cancelled booking={} session={}", bookingId, sessionId, it)
-                }
-            }
-        }
-        return venueBookingRepository.save(booking).toDto()
-    }
-
-    @Transactional
-    fun complete(venueId: UUID, bookingId: UUID, jwt: Jwt): VenueBookingResponse {
-        val userId = jwt.userId()
-        requireOwnedVenue(venueId, userId)
-        val booking = requireBooking(venueId, bookingId)
-        if (booking.status != VenueBookingStatus.PAID) {
-            throw VenueBookingInvalidStateException(
-                message = "Only paid bookings can be completed",
-                bookingId = bookingId,
-            )
-        }
-        booking.status = VenueBookingStatus.COMPLETED
         return venueBookingRepository.save(booking).toDto()
     }
 
@@ -285,9 +255,9 @@ class VenueBookingService(
         if (booking.requesterUserId != userId) {
             throw VenueBookingAccessDeniedException(bookingId, userId)
         }
-        if (booking.status != VenueBookingStatus.APPROVED) {
+        if (booking.status != VenueBookingStatus.REQUESTED) {
             throw VenueBookingInvalidStateException(
-                message = "Booking must be approved before checkout",
+                message = "Booking must be requested before checkout",
                 bookingId = bookingId,
             )
         }
@@ -328,18 +298,27 @@ class VenueBookingService(
             .orElseThrow { VenueBookingNotFoundException(bookingId) }
 
         if (booking.status == VenueBookingStatus.PAID ||
-            booking.status == VenueBookingStatus.COMPLETED
+            booking.status == VenueBookingStatus.ACCEPTED
         ) {
             return booking.toDto()
         }
-        if (booking.status != VenueBookingStatus.APPROVED) {
+        if (booking.status != VenueBookingStatus.REQUESTED) {
             throw VenueBookingInvalidStateException(
-                message = "Only approved bookings can be marked paid",
+                message = "Only requested bookings can be marked paid",
                 bookingId = bookingId,
             )
         }
         fulfillBooking(booking, checkoutSessionId)
         return booking.toDto()
+    }
+
+    private fun releaseSlotIfWholeBooking(booking: VenueBooking) {
+        val slot = booking.slot!!
+        val isWholeSlotBooking = booking.area == null
+        if (isWholeSlotBooking && slot.status == VenueSlotStatus.BOOKED) {
+            slot.status = VenueSlotStatus.PUBLISHED
+            venueSlotRepository.save(slot)
+        }
     }
 
     private fun fulfillBooking(booking: VenueBooking, sessionId: String?) {
@@ -379,13 +358,38 @@ class VenueBookingService(
         venueBookingRepository
             .findBySlotIdAndStatusIn(
                 slot.id!!,
-                listOf(VenueBookingStatus.REQUESTED, VenueBookingStatus.APPROVED),
+                listOf(VenueBookingStatus.REQUESTED),
             )
             .filter { it.id != booking.id }
             .forEach {
                 it.status = VenueBookingStatus.EXPIRED
                 venueBookingRepository.save(it)
             }
+    }
+
+    private fun refundPaidBookingOrThrow(booking: VenueBooking, bookingId: UUID, action: String) {
+        val needsRefund = (
+            booking.status == VenueBookingStatus.PAID ||
+                booking.status == VenueBookingStatus.ACCEPTED
+            ) && booking.priceMinor > 0L
+        if (!needsRefund) return
+
+        val sessionId = booking.stripeCheckoutSessionId
+        if (sessionId.isNullOrBlank()) {
+            throw VenueBookingInvalidStateException(
+                message = "Cannot $action: paid booking is missing checkout session for refund",
+                bookingId = bookingId,
+            )
+        }
+        try {
+            paymentInternalClient.refundCheckout(RefundConnectCheckoutRequest(sessionId))
+        } catch (ex: Exception) {
+            log.error("Refund failed booking={} session={} action={}", bookingId, sessionId, action, ex)
+            throw VenueBookingInvalidStateException(
+                message = "Refund failed; booking was not denied. Try again.",
+                bookingId = bookingId,
+            )
+        }
     }
 
     private fun assertAreaCapacityAvailable(

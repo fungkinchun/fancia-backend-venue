@@ -169,7 +169,7 @@ class VenueBookingControllerIntegrationTest(
         return slotId
     }
 
-    test("should create publish free slot and approve booking to paid") {
+    test("should create publish free slot as paid then accept booking") {
         val ownerId = UUID.randomUUID()
         val guestId = UUID.randomUUID()
         val venueId = createVenue(ownerId)
@@ -182,23 +182,24 @@ class VenueBookingControllerIntegrationTest(
             accept = APPLICATION_JSON
         }.andExpect {
             status { isOk() }
-            jsonPath("$.status", `is`("REQUESTED"))
+            jsonPath("$.status", `is`("PAID"))
             jsonPath("$.slotId", `is`(slotId.toString()))
             jsonPath("$.requesterUserId", `is`(guestId.toString()))
             jsonPath("$.priceMinor", `is`(0))
         }.andReturn().response.contentAsString
         val bookingId = UUID.fromString(jsonMapper.readTree(bookingBody).get("id").asText())
 
+        venueSlotRepository.findById(slotId).get().status.name shouldBe "BOOKED"
+
         mockMvc.post("/api/venues/{venueId}/bookings/{bookingId}/approve", venueId, bookingId) {
             with(jwtFor(ownerId))
             accept = APPLICATION_JSON
         }.andExpect {
             status { isOk() }
-            jsonPath("$.status", `is`("PAID"))
+            jsonPath("$.status", `is`("ACCEPTED"))
         }
 
-        venueSlotRepository.findById(slotId).get().status.name shouldBe "BOOKED"
-        venueBookingRepository.findById(bookingId).get().status.name shouldBe "PAID"
+        venueBookingRepository.findById(bookingId).get().status.name shouldBe "ACCEPTED"
     }
 
     test("should book a specific area on a slot without marking the whole slot booked") {
@@ -288,7 +289,7 @@ class VenueBookingControllerIntegrationTest(
             accept = APPLICATION_JSON
         }.andExpect {
             status { isOk() }
-            jsonPath("$.status", `is`("REQUESTED"))
+            jsonPath("$.status", `is`("PAID"))
         }
 
         mockMvc.post("/api/venues/{venueId}/bookings", venueId) {
@@ -354,7 +355,7 @@ class VenueBookingControllerIntegrationTest(
             accept = APPLICATION_JSON
         }.andExpect {
             status { isOk() }
-            jsonPath("$.status", `is`("REQUESTED"))
+            jsonPath("$.status", `is`("PAID"))
         }
     }
 
@@ -387,7 +388,7 @@ class VenueBookingControllerIntegrationTest(
         }
     }
 
-    test("should approve paid booking then confirm paid via internal endpoint") {
+    test("should pay requested booking then accept via owner approve") {
         val ownerId = UUID.randomUUID()
         val guestId = UUID.randomUUID()
         val venueId = createVenue(ownerId)
@@ -410,8 +411,8 @@ class VenueBookingControllerIntegrationTest(
             with(jwtFor(ownerId))
             accept = APPLICATION_JSON
         }.andExpect {
-            status { isOk() }
-            jsonPath("$.status", `is`("APPROVED"))
+            status { isBadRequest() }
+            jsonPath("$.errorCode", `is`("VENUE_BOOKING_INVALID_STATE"))
         }
 
         mockMvc.post("/internal/venue-bookings/{bookingId}/paid", bookingId) {
@@ -425,15 +426,23 @@ class VenueBookingControllerIntegrationTest(
 
         venueSlotRepository.findById(slotId).get().status.name shouldBe "BOOKED"
 
+        mockMvc.post("/api/venues/{venueId}/bookings/{bookingId}/approve", venueId, bookingId) {
+            with(jwtFor(ownerId))
+            accept = APPLICATION_JSON
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.status", `is`("ACCEPTED"))
+        }
+
         mockMvc.get("/api/venues/{venueId}/bookings/{bookingId}", venueId, bookingId) {
             accept = APPLICATION_JSON
         }.andExpect {
             status { isOk() }
-            jsonPath("$.status", `is`("PAID"))
+            jsonPath("$.status", `is`("ACCEPTED"))
         }
     }
 
-    test("approved paid booking can start checkout via payment proxy") {
+    test("requested paid booking can start checkout via payment proxy") {
         val ownerId = UUID.randomUUID()
         val guestId = UUID.randomUUID()
         val venueId = createVenue(ownerId)
@@ -447,14 +456,6 @@ class VenueBookingControllerIntegrationTest(
             accept = APPLICATION_JSON
         }.andExpect { status { isOk() } }.andReturn().response.contentAsString
         val bookingId = UUID.fromString(jsonMapper.readTree(bookingBody).get("id").asText())
-
-        mockMvc.post("/api/venues/{venueId}/bookings/{bookingId}/approve", venueId, bookingId) {
-            with(jwtFor(ownerId))
-            accept = APPLICATION_JSON
-        }.andExpect {
-            status { isOk() }
-            jsonPath("$.status", `is`("APPROVED"))
-        }
 
         stubFor(
             post(urlPathEqualTo("/internal/checkout/sessions"))
