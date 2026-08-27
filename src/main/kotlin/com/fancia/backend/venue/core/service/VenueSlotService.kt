@@ -10,6 +10,7 @@ import com.fancia.backend.shared.venue.core.exception.VenueOwnerPayoutNotReadyEx
 import com.fancia.backend.shared.venue.core.exception.VenueSlotAccessDeniedException
 import com.fancia.backend.shared.venue.core.exception.VenueSlotInvalidStateException
 import com.fancia.backend.shared.venue.core.exception.VenueSlotNotFoundException
+import com.fancia.backend.shared.payment.core.util.StripeMinAmounts
 import com.fancia.backend.venue.core.entity.Venue
 import com.fancia.backend.venue.core.entity.VenueSlot
 import com.fancia.backend.venue.core.repository.VenueRepository
@@ -54,6 +55,7 @@ class VenueSlotService(
         val userId = jwt.userId()
         val venue = requireOwnedVenue(venueId, userId)
         validateWindow(request.startTime, request.endTime)
+        requireCataloguePrice(request.priceMinor, request.currency)
         val slot = request.toEntity(venue).also { it.createdBy = userId }
         return venueSlotRepository.save(slot).toDto()
     }
@@ -76,6 +78,7 @@ class VenueSlotService(
         }
         request.applyTo(slot)
         validateWindow(slot.startTime, slot.endTime)
+        requireCataloguePrice(slot.priceMinor, slot.currency)
         return venueSlotRepository.save(slot).toDto()
     }
 
@@ -144,6 +147,15 @@ class VenueSlotService(
         if (!readiness.payoutsReady) {
             throw VenueOwnerPayoutNotReadyException(venue.id!!, ownerId)
         }
+    }
+
+    private fun requireCataloguePrice(priceMinor: Long, currency: String) {
+        if (StripeMinAmounts.isAllowedCataloguePrice(priceMinor, currency)) return
+        throw VenueSlotInvalidStateException(
+            message = "Paid slot price must be at least ${StripeMinAmounts.formatMinimum(currency)} " +
+                "(Stripe card payment minimum). Use 0 for free.",
+            errorCode = "VENUE_PRICE_TOO_SMALL",
+        )
     }
 
     private fun requireNoPublishedOverlap(venueId: UUID, slot: VenueSlot) {

@@ -9,6 +9,8 @@ import com.fancia.backend.shared.venue.core.exception.VenueAreaNotFoundException
 import com.fancia.backend.shared.venue.core.exception.VenueNotFoundException
 import com.fancia.backend.shared.venue.core.exception.VenueOwnerPayoutNotReadyException
 import com.fancia.backend.shared.venue.core.exception.VenueSlotAccessDeniedException
+import com.fancia.backend.shared.venue.core.exception.VenueSlotInvalidStateException
+import com.fancia.backend.shared.payment.core.util.StripeMinAmounts
 import com.fancia.backend.venue.core.entity.Venue
 import com.fancia.backend.venue.core.entity.VenueArea
 import com.fancia.backend.venue.core.repository.VenueAreaRepository
@@ -44,6 +46,7 @@ class VenueAreaService(
     ): VenueAreaResponse {
         val userId = jwt.userId()
         val venue = requireOwnedVenue(venueId, userId)
+        requireCataloguePrice(request.priceMinor, request.currency)
         if (request.priceMinor > 0) {
             requireOwnerPayoutReady(venue, userId)
         }
@@ -67,6 +70,7 @@ class VenueAreaService(
             requireUniqueAreaName(venueId, nextName, excludeAreaId = areaId)
         }
         request.applyTo(area)
+        requireCataloguePrice(area.priceMinor, area.currency)
         if (area.priceMinor > 0) {
             requireOwnerPayoutReady(venue, userId)
         }
@@ -130,6 +134,15 @@ class VenueAreaService(
         if (!readiness.payoutsReady) {
             throw VenueOwnerPayoutNotReadyException(venue.id!!, ownerId)
         }
+    }
+
+    private fun requireCataloguePrice(priceMinor: Long, currency: String) {
+        if (StripeMinAmounts.isAllowedCataloguePrice(priceMinor, currency)) return
+        throw VenueSlotInvalidStateException(
+            message = "Paid area price must be at least ${StripeMinAmounts.formatMinimum(currency)} " +
+                "(Stripe card payment minimum). Use 0 for free.",
+            errorCode = "VENUE_PRICE_TOO_SMALL",
+        )
     }
 
     private fun Jwt.userId(): UUID =
