@@ -2,7 +2,6 @@ package com.fancia.backend.venue.core.service
 
 import com.fancia.backend.shared.common.core.exception.InvalidAuthenticationException
 import com.fancia.backend.shared.common.post.core.dto.CastPollVoteRequest
-import com.fancia.backend.shared.common.post.core.enums.PostKind
 import com.fancia.backend.shared.common.post.core.dto.CreatePostBody
 import com.fancia.backend.shared.common.post.core.dto.CreatePostRequest
 import com.fancia.backend.shared.common.post.core.dto.PostMediaItem
@@ -53,8 +52,8 @@ class VenuePostService(
             authorUserId = currentUserId,
             body = request.body,
             media = dedicateMedia(request.media, venueId),
-            status = request.status,
-            expiredAt = request.expiredAt,
+            featured = request.featured,
+            pinned = request.pinned,
             kind = request.kind,
             poll = request.poll,
         )
@@ -109,14 +108,14 @@ class VenuePostService(
 
     fun list(
         venueId: UUID,
-        kind: PostKind? = null,
-        openOnly: Boolean = false,
+        kind: com.fancia.backend.shared.common.post.core.enums.PostKind? = null,
+        status: List<com.fancia.backend.shared.common.post.core.enums.PostStatus>? = null,
         pageable: Pageable,
     ): Page<PostResponse> {
         if (!venueRepository.existsById(venueId)) {
             throw VenueNotFoundException(venueId)
         }
-        return commonInternalClient.listPosts(venueId, kind, openOnly, pageable)
+        return commonInternalClient.listPosts(venueId, kind, status, pageable)
     }
 
     fun get(venueId: UUID, postId: UUID): PostResponse {
