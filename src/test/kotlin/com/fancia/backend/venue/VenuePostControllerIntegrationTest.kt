@@ -1,5 +1,6 @@
 package com.fancia.backend.venue
 
+import com.fancia.backend.shared.common.post.core.enums.PostStatus
 import com.fancia.backend.shared.common.post.core.dto.PostMediaResponse
 import com.fancia.backend.shared.common.post.core.dto.PostResponse
 import com.fancia.backend.shared.common.post.core.enums.PostMediaType
@@ -110,8 +111,7 @@ class VenuePostControllerIntegrationTest(
                     sortOrder = 1,
                 ),
             ),
-            featured = true,
-            pinned = false,
+            status = PostStatus.FEATURED,
             createdAt = null,
         )
         stubFor(
@@ -135,8 +135,7 @@ class VenuePostControllerIntegrationTest(
                     "mediaType" to "image",
                 ),
             ),
-            "featured" to true,
-            "pinned" to false,
+            "status" to "FEATURED",
         )
         val responseBody = mockMvc
             .post("/api/venues/$venueId/posts") {
@@ -150,33 +149,27 @@ class VenuePostControllerIntegrationTest(
                 status { isCreated() }
                 jsonPath("$.id", `is`(postId.toString()))
                 jsonPath("$.targetId", `is`(venueId.toString()))
-                jsonPath("$.featured", `is`(true))
-                jsonPath("$.pinned", `is`(false))
+                jsonPath("$.status", `is`("FEATURED"))
                 jsonPath("$.media.length()", `is`(2))
             }
             .andReturn()
             .response
             .contentAsString
         val response = jsonMapper.readValue(responseBody, object : TypeReference<PostResponse>() {})
-        response.featured shouldBe true
-        response.pinned shouldBe false
+        response.status shouldBe PostStatus.FEATURED
 
         verify(
             postRequestedFor(urlPathEqualTo("/internal/posts"))
                 .withRequestBody(matchingJsonPath("$.targetId", equalTo(venueId.toString())))
                 .withRequestBody(matchingJsonPath("$.authorUserId", equalTo(userId.toString())))
-                .withRequestBody(matchingJsonPath("$.featured", equalTo("true")))
-                .withRequestBody(matchingJsonPath("$.pinned", equalTo("false")))
+                .withRequestBody(matchingJsonPath("$.status", equalTo("FEATURED")))
                 .withRequestBody(matchingJsonPath("$.media.length()", equalTo("2"))),
         )
         val forwardedBody = findAll(postRequestedFor(urlPathEqualTo("/internal/posts"))).single().bodyAsString
         val forwardedJson = jsonMapper.readTree(forwardedBody)
-        forwardedJson.has("isFeatured") shouldBe false
-        forwardedJson.has("isPinned") shouldBe false
-        forwardedJson.has("featured") shouldBe true
-        forwardedJson.has("pinned") shouldBe true
-        forwardedJson.get("featured").booleanValue() shouldBe true
-        forwardedJson.get("pinned").booleanValue() shouldBe false
+        forwardedJson.has("featured") shouldBe false
+        forwardedJson.has("pinned") shouldBe false
+        forwardedJson.get("status").textValue() shouldBe "FEATURED"
     }
 
     test("should reject post when user is not an accepted staff member") {
@@ -191,8 +184,7 @@ class VenuePostControllerIntegrationTest(
                     mapOf(
                         "body" to "hello",
                         "media" to emptyList<Any>(),
-                        "featured" to false,
-                        "pinned" to false,
+                        "status" to "VISIBLE",
                     )
                 )
                 contentType = APPLICATION_JSON
@@ -216,8 +208,7 @@ class VenuePostControllerIntegrationTest(
                     mapOf(
                         "body" to "hello",
                         "media" to emptyList<Any>(),
-                        "featured" to false,
-                        "pinned" to false,
+                        "status" to "VISIBLE",
                     )
                 )
                 contentType = APPLICATION_JSON

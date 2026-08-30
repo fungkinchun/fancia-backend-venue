@@ -1,6 +1,8 @@
 package com.fancia.backend.venue.core.service
 
 import com.fancia.backend.shared.common.core.exception.InvalidAuthenticationException
+import com.fancia.backend.shared.common.post.core.dto.CastPollVoteRequest
+import com.fancia.backend.shared.common.post.core.enums.PostKind
 import com.fancia.backend.shared.common.post.core.dto.CreatePostBody
 import com.fancia.backend.shared.common.post.core.dto.CreatePostRequest
 import com.fancia.backend.shared.common.post.core.dto.PostMediaItem
@@ -51,8 +53,10 @@ class VenuePostService(
             authorUserId = currentUserId,
             body = request.body,
             media = dedicateMedia(request.media, venueId),
-            featured = request.featured,
-            pinned = request.pinned,
+            status = request.status,
+            expiredAt = request.expiredAt,
+            kind = request.kind,
+            poll = request.poll,
         )
         log.debug("common-api createPost payload: {}", jsonMapper.writeValueAsString(internalRequest))
         return commonInternalClient.createPost(internalRequest)
@@ -92,11 +96,27 @@ class VenuePostService(
         commonInternalClient.unlikePost(postId)
     }
 
-    fun list(venueId: UUID, pageable: Pageable): Page<PostResponse> {
+    fun vote(venueId: UUID, postId: UUID, request: CastPollVoteRequest, jwt: Jwt): PostResponse {
+        jwt.getClaimAsString("userId")?.let { UUID.fromString(it) }
+            ?: throw InvalidAuthenticationException()
+        get(venueId, postId)
+        val post = commonInternalClient.voteOnPost(postId, request)
+        if (post.targetId != venueId) {
+            throw VenueNotFoundException(venueId)
+        }
+        return post
+    }
+
+    fun list(
+        venueId: UUID,
+        kind: PostKind? = null,
+        openOnly: Boolean = false,
+        pageable: Pageable,
+    ): Page<PostResponse> {
         if (!venueRepository.existsById(venueId)) {
             throw VenueNotFoundException(venueId)
         }
-        return commonInternalClient.listPosts(venueId, pageable)
+        return commonInternalClient.listPosts(venueId, kind, openOnly, pageable)
     }
 
     fun get(venueId: UUID, postId: UUID): PostResponse {

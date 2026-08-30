@@ -1,8 +1,10 @@
 package com.fancia.backend.venue.core.controller
 
+import com.fancia.backend.shared.common.post.core.dto.CastPollVoteRequest
 import com.fancia.backend.shared.common.post.core.dto.CreatePostBody
 import com.fancia.backend.shared.common.post.core.dto.PostResponse
 import com.fancia.backend.shared.common.post.core.dto.UpdatePostRequest
+import com.fancia.backend.shared.common.post.core.enums.PostKind
 import com.fancia.backend.venue.core.service.VenuePostService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
@@ -50,9 +52,15 @@ class VenuePostController(
     @GetMapping
     fun listPosts(
         @PathVariable venueId: UUID,
+        @RequestParam(required = false)
+        @Parameter(description = "Filter by post kind (TEXT or POLL)")
+        kind: PostKind?,
+        @RequestParam(defaultValue = "false")
+        @Parameter(description = "When true, only open poll posts")
+        openOnly: Boolean,
         @PageableDefault(size = 20) pageable: Pageable,
     ): ResponseEntity<Page<PostResponse>> {
-        return ResponseEntity.ok(venuePostService.list(venueId, pageable))
+        return ResponseEntity.ok(venuePostService.list(venueId, kind, openOnly, pageable))
     }
 
     @Operation(summary = "Get post on venue")
@@ -94,5 +102,16 @@ class VenuePostController(
     ): ResponseEntity<Void> {
         venuePostService.unlike(venueId, postId, jwt)
         return ResponseEntity.noContent().build()
+    }
+
+    @Operation(summary = "Vote on poll post")
+    @PostMapping("/{postId}/votes")
+    fun voteOnPost(
+        @PathVariable venueId: UUID,
+        @PathVariable postId: UUID,
+        @RequestBody @Valid request: CastPollVoteRequest,
+        @AuthenticationPrincipal jwt: Jwt,
+    ): ResponseEntity<PostResponse> {
+        return ResponseEntity.ok(venuePostService.vote(venueId, postId, request, jwt))
     }
 }
