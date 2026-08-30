@@ -52,8 +52,8 @@ class VenuePostService(
             authorUserId = currentUserId,
             body = request.body,
             media = dedicateMedia(request.media, venueId),
-            featured = request.featured,
-            pinned = request.pinned,
+            status = request.status,
+            expiredAt = request.expiredAt,
             kind = request.kind,
             poll = request.poll,
         )
