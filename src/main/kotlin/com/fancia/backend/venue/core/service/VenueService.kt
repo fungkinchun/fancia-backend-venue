@@ -8,9 +8,13 @@ import com.fancia.backend.shared.common.tag.core.dto.TagItemRequest
 import com.fancia.backend.shared.venue.core.dto.CreateVenueRequest
 import com.fancia.backend.shared.venue.core.dto.UpdateVenueRequest
 import com.fancia.backend.shared.venue.core.dto.VenueResponse
+import com.fancia.backend.shared.venue.core.enums.StaffStatus
+import com.fancia.backend.shared.venue.core.enums.VenueRole
 import com.fancia.backend.shared.venue.core.exception.VenueNotFoundException
 import com.fancia.backend.shared.venue.core.exception.VenueStaffNotFoundException
 import com.fancia.backend.venue.core.entity.Venue
+import com.fancia.backend.venue.core.entity.VenueStaff
+import com.fancia.backend.venue.core.entity.VenueStaffId
 import com.fancia.backend.venue.core.repository.VenueRepository
 import com.fancia.backend.venue.core.support.VenueLocationSupport
 import com.fancia.backend.venue.external.CommonServiceClient
@@ -29,7 +33,6 @@ import java.util.*
 @Service
 class VenueService(
     private val venueRepository: VenueRepository,
-    private val venueStaffService: VenueStaffService,
     private val commonServiceClient: CommonServiceClient,
     private val venueBrowseConstraintResolver: VenueBrowseConstraintResolver,
 ) {
@@ -142,7 +145,15 @@ class VenueService(
             it.links.addAll(request.links.map { link -> Link(type = link.type, url = link.url) })
             VenueLocationSupport.apply(it, request.location)
             val venue = venueRepository.save(it)
-            return venue.toDto()
+            val ownerStaff = VenueStaff().apply {
+                this.venue = venue
+                this.id = VenueStaffId(venueId = venue.id!!, userId = currentUserId)
+                this.role = VenueRole.ADMIN
+                this.status = StaffStatus.ACCEPTED
+                this.joinedAt = LocalDateTime.now()
+            }
+            venue.staff.add(ownerStaff)
+            return venueRepository.save(venue).toDto()
         }
     }
 

@@ -1,9 +1,7 @@
 package com.fancia.backend.venue.core.controller
 
 import com.fancia.backend.shared.venue.core.dto.*
-import com.fancia.backend.shared.venue.core.enums.StaffStatus
 import com.fancia.backend.venue.core.service.VenueService
-import com.fancia.backend.venue.core.service.VenueStaffService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponse
@@ -27,7 +25,6 @@ import java.util.*
 @SecurityRequirement(name = "bearerAuth")
 class VenueController(
     private val venueService: VenueService,
-    private val venueStaffService: VenueStaffService
 ) {
     @Operation(
         summary = "Create venue",
@@ -43,21 +40,7 @@ class VenueController(
         @RequestBody @Valid request: CreateVenueRequest,
         @AuthenticationPrincipal jwt: Jwt
     ): ResponseEntity<VenueResponse> {
-        val venue = venueService.create(request, jwt)
-        val staff = venueStaffService.create(
-            venueId = venue.id!!,
-            CreateVenueStaffRequest(payload = ""),
-            jwt
-        )
-        venueStaffService.update(
-            venueId = staff.venueId!!,
-            userId = staff.userId!!,
-            UpdateVenueStaffRequest(
-                status = StaffStatus.ACCEPTED
-            ),
-            jwt
-        )
-        return ResponseEntity.ok(venue)
+        return ResponseEntity.ok(venueService.create(request, jwt))
     }
 
     @PutMapping("/{id}")

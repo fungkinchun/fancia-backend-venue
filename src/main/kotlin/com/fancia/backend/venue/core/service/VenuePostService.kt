@@ -36,15 +36,14 @@ class VenuePostService(
     fun create(venueId: UUID, request: CreatePostBody, jwt: Jwt): PostResponse {
         val currentUserId = jwt.getClaimAsString("userId")?.let { UUID.fromString(it) }
             ?: throw InvalidAuthenticationException()
-        if (!venueRepository.existsById(venueId)) {
-            throw VenueNotFoundException(venueId)
-        }
-        if (!venueStaffRepository.existsByIdVenueIdAndIdUserIdAndStatus(
-                venueId,
-                currentUserId,
-                StaffStatus.ACCEPTED,
-            )
-        ) {
+        val venue = venueRepository.findById(venueId).orElseThrow { VenueNotFoundException(venueId) }
+        val isOwner = venue.createdBy == currentUserId
+        val isAcceptedStaff = venueStaffRepository.existsByIdVenueIdAndIdUserIdAndStatus(
+            venueId,
+            currentUserId,
+            StaffStatus.ACCEPTED,
+        )
+        if (!isOwner && !isAcceptedStaff) {
             throw PostAccessDeniedException(venueId)
         }
         val internalRequest = CreatePostRequest(
