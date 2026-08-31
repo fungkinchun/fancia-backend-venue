@@ -50,10 +50,10 @@ class VenuePostService(
             targetId = venueId,
             authorUserId = currentUserId,
             body = request.body,
-            media = dedicateMedia(request.media, venueId),
-            status = request.status,
+            media = dedicateMedia(request.mediaOrEmpty(), venueId),
+            status = request.statusOrDefault(),
             expiredAt = request.expiredAt,
-            kind = request.kind,
+            kind = request.kindOrDefault(),
             poll = request.poll,
         )
         log.debug("common-api createPost payload: {}", jsonMapper.writeValueAsString(internalRequest))
