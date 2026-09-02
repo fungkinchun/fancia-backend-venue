@@ -15,7 +15,6 @@ import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.web.PageableDefault
 import org.springframework.http.ResponseEntity
-import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.web.bind.annotation.*
@@ -48,7 +47,11 @@ class VenueStaffController(
     }
 
     @PatchMapping("/{venueId}/staff/{userId}")
-    @PreAuthorize("hasAuthority('SCOPE_venue_staff.update')")
+    @Operation(
+        summary = "Update venue staff membership",
+        description = "Admins can change another staff member's status. " +
+            "Staff may only update their own membership where the service allows. Requires a signed-in user.",
+    )
     fun updateVenueStaff(
         @PathVariable venueId: UUID,
         @PathVariable userId: UUID,
