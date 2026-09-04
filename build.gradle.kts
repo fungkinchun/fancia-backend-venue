@@ -41,6 +41,7 @@ repositories {
     maven { url = uri("https://repo.spring.io/snapshot") }
     codeArtifactRepo("fancia-backend-shared-common")
     codeArtifactRepo("fancia-backend-shared-user")
+    codeArtifactRepo("fancia-backend-shared-notification")
     codeArtifactRepo("fancia-backend-shared-venue")
     codeArtifactRepo("fancia-backend-shared-event")
     codeArtifactRepo("fancia-backend-shared-upload")
@@ -76,6 +77,7 @@ dependencies {
     implementation("com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:2.0.4")
     implementation("com.fancia.backend.shared:common:0.0.1-SNAPSHOT")
     implementation("com.fancia.backend.shared:user:0.0.1-SNAPSHOT")
+    implementation("com.fancia.backend.shared:notification:0.0.1-SNAPSHOT")
     implementation("com.fancia.backend.shared:venue:0.0.1-SNAPSHOT")
     implementation("com.fancia.backend.shared:event:0.0.1-SNAPSHOT")
     implementation("com.fancia.backend.shared:upload:0.0.1-SNAPSHOT")

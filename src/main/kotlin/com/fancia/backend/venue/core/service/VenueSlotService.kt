@@ -11,6 +11,7 @@ import com.fancia.backend.shared.venue.core.exception.VenueSlotAccessDeniedExcep
 import com.fancia.backend.shared.venue.core.exception.VenueSlotInvalidStateException
 import com.fancia.backend.shared.venue.core.exception.VenueSlotNotFoundException
 import com.fancia.backend.shared.payment.core.util.StripeMinAmounts
+import com.fancia.backend.shared.common.redis.RedisQueryCache
 import com.fancia.backend.venue.core.entity.Venue
 import com.fancia.backend.venue.core.entity.VenueSlot
 import com.fancia.backend.venue.core.repository.VenueRepository
@@ -19,6 +20,7 @@ import com.fancia.backend.venue.external.PaymentInternalClient
 import com.fancia.backend.venue.mapper.applyTo
 import com.fancia.backend.venue.mapper.toDto
 import com.fancia.backend.venue.mapper.toEntity
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.repository.findByIdOrNull
@@ -34,6 +36,7 @@ class VenueSlotService(
     private val venueSlotRepository: VenueSlotRepository,
     private val venueAreaService: VenueAreaService,
     private val paymentInternalClient: PaymentInternalClient,
+    private val redisQueryCache: ObjectProvider<RedisQueryCache>,
 ) {
     @Transactional(readOnly = true)
     fun findById(venueId: UUID, slotId: UUID): VenueSlotResponse =
@@ -101,7 +104,9 @@ class VenueSlotService(
             requireOwnerPayoutReady(venue, userId)
         }
         slot.status = VenueSlotStatus.PUBLISHED
-        return venueSlotRepository.save(slot).toDto()
+        val saved = venueSlotRepository.save(slot).toDto()
+        redisQueryCache.ifAvailable?.evictByPrefix("venue:browse:")
+        return saved
     }
 
     @Transactional
@@ -116,7 +121,9 @@ class VenueSlotService(
             )
         }
         slot.status = VenueSlotStatus.DRAFT
-        return venueSlotRepository.save(slot).toDto()
+        val saved = venueSlotRepository.save(slot).toDto()
+        redisQueryCache.ifAvailable?.evictByPrefix("venue:browse:")
+        return saved
     }
 
     @Transactional
@@ -136,8 +143,13 @@ class VenueSlotService(
                 slotId = slotId,
             )
         }
+        val wasPublished = slot.status == VenueSlotStatus.PUBLISHED
         slot.status = VenueSlotStatus.CANCELLED
-        return venueSlotRepository.save(slot).toDto()
+        val saved = venueSlotRepository.save(slot).toDto()
+        if (wasPublished) {
+            redisQueryCache.ifAvailable?.evictByPrefix("venue:browse:")
+        }
+        return saved
     }
 
     private fun requireOwnerPayoutReady(venue: Venue, actingUserId: UUID) {

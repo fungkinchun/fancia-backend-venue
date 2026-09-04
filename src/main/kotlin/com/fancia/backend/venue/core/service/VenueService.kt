@@ -1,5 +1,6 @@
 package com.fancia.backend.venue.core.service
 
+import tools.jackson.core.type.TypeReference
 import com.fancia.backend.shared.common.core.exception.InvalidAuthenticationException
 import com.fancia.backend.shared.common.core.enums.ResourceVisibility
 import com.fancia.backend.shared.common.core.utils.Slugify
@@ -13,6 +14,9 @@ import com.fancia.backend.shared.venue.core.enums.StaffStatus
 import com.fancia.backend.shared.venue.core.enums.VenueRole
 import com.fancia.backend.shared.venue.core.exception.VenueNotFoundException
 import com.fancia.backend.shared.venue.core.exception.VenueStaffNotFoundException
+import com.fancia.backend.shared.common.redis.CacheKeys
+import com.fancia.backend.shared.common.redis.CachedPage
+import com.fancia.backend.shared.common.redis.RedisQueryCache
 import com.fancia.backend.venue.core.entity.Venue
 import com.fancia.backend.venue.core.entity.VenueStaff
 import com.fancia.backend.venue.core.entity.VenueStaffId
@@ -22,12 +26,14 @@ import com.fancia.backend.venue.external.CommonServiceClient
 import com.fancia.backend.venue.mapper.toDto
 import com.fancia.backend.venue.mapper.toEntity
 import jakarta.validation.Valid
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Duration
 import java.time.LocalDateTime
 import java.util.*
 
@@ -37,6 +43,7 @@ class VenueService(
     private val commonServiceClient: CommonServiceClient,
     private val venueBrowseConstraintResolver: VenueBrowseConstraintResolver,
     private val savedResourceService: SavedResourceService,
+    private val redisQueryCache: ObjectProvider<RedisQueryCache>,
 ) {
     fun listSavedVenues(jwt: Jwt, pageable: Pageable): Page<VenueResponse> {
         val page = savedResourceService.listSavedPage(jwt, pageable)
@@ -87,6 +94,46 @@ class VenueService(
     }
 
     fun findAll(
+        name: String?,
+        description: String?,
+        tagIds: List<UUID>?,
+        latitude: Double?,
+        longitude: Double?,
+        radiusKm: Double?,
+        hasPublishedSlots: Boolean,
+        hasUpcomingEvents: Boolean,
+        availableFrom: LocalDateTime?,
+        availableTo: LocalDateTime?,
+        pageable: Pageable,
+    ): Page<VenueResponse> {
+        val cache = redisQueryCache.ifAvailable
+        if (cache != null) {
+            val key = BROWSE_PREFIX + CacheKeys.hash(
+                name?.trim(), description?.trim(), tagIds, latitude, longitude, radiusKm,
+                hasPublishedSlots, hasUpcomingEvents, availableFrom, availableTo,
+                pageable.pageNumber, pageable.pageSize,
+            )
+            val cached = cache.getOrLoad(
+                key,
+                BROWSE_TTL,
+                object : TypeReference<CachedPage<VenueResponse>>() {},
+            ) {
+                CachedPage.from(
+                    loadBrowse(
+                        name, description, tagIds, latitude, longitude, radiusKm,
+                        hasPublishedSlots, hasUpcomingEvents, availableFrom, availableTo, pageable,
+                    ),
+                )
+            }
+            return cached.toPage(pageable)
+        }
+        return loadBrowse(
+            name, description, tagIds, latitude, longitude, radiusKm,
+            hasPublishedSlots, hasUpcomingEvents, availableFrom, availableTo, pageable,
+        )
+    }
+
+    private fun loadBrowse(
         name: String?,
         description: String?,
         tagIds: List<UUID>?,
@@ -192,6 +239,7 @@ class VenueService(
                 this.joinedAt = LocalDateTime.now()
             }
             venue.staff.add(ownerStaff)
+            invalidateBrowseCaches()
             return venueRepository.save(venue).toDto()
         }
     }
@@ -207,6 +255,7 @@ class VenueService(
             it.links.clear()
             it.links.addAll(request.links.map { link -> Link(type = link.type, url = link.url) })
             VenueLocationSupport.apply(it, request.location)
+            invalidateBrowseCaches()
             return venueRepository.save(it).toDto()
         }
     }
@@ -219,7 +268,12 @@ class VenueService(
         }
         if (venuesWithTag.isNotEmpty()) {
             venueRepository.saveAll(venuesWithTag)
+            invalidateBrowseCaches()
         }
+    }
+
+    fun invalidateBrowseCaches() {
+        redisQueryCache.ifAvailable?.evictByPrefix(BROWSE_PREFIX)
     }
 
     private fun applyTags(tags: MutableSet<UUID>, requestTags: Set<TagItemRequest>) {
@@ -253,5 +307,10 @@ class VenueService(
                 return VenueIdFilter(active = true, ids = constraints.toList())
             }
         }
+    }
+
+    companion object {
+        private const val BROWSE_PREFIX = "venue:browse:"
+        private val BROWSE_TTL = Duration.ofSeconds(60)
     }
 }

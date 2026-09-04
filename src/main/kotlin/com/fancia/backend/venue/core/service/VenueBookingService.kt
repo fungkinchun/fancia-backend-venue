@@ -1,6 +1,7 @@
 package com.fancia.backend.venue.core.service
 
 import com.fancia.backend.shared.common.core.exception.InvalidAuthenticationException
+import com.fancia.backend.shared.notification.core.dto.SendPushNotificationRequest
 import com.fancia.backend.shared.payment.core.dto.ConnectCheckoutRequest
 import com.fancia.backend.shared.payment.core.dto.ConnectCheckoutResponse
 import com.fancia.backend.shared.payment.core.dto.CreateConnectCheckoutSessionRequest
@@ -11,12 +12,12 @@ import com.fancia.backend.shared.venue.core.dto.VenueBookingCheckoutSnapshot
 import com.fancia.backend.shared.venue.core.dto.VenueBookingResponse
 import com.fancia.backend.shared.venue.core.enums.VenueBookingStatus
 import com.fancia.backend.shared.venue.core.enums.VenueSlotStatus
+import com.fancia.backend.shared.venue.core.exception.VenueAreaNotFoundException
+import com.fancia.backend.shared.venue.core.exception.VenueAreaSoldOutException
 import com.fancia.backend.shared.venue.core.exception.VenueBookingAccessDeniedException
 import com.fancia.backend.shared.venue.core.exception.VenueBookingInvalidStateException
 import com.fancia.backend.shared.venue.core.exception.VenueBookingNotFoundException
 import com.fancia.backend.shared.venue.core.exception.VenueNotFoundException
-import com.fancia.backend.shared.venue.core.exception.VenueAreaNotFoundException
-import com.fancia.backend.shared.venue.core.exception.VenueAreaSoldOutException
 import com.fancia.backend.shared.venue.core.exception.VenueSlotInvalidStateException
 import com.fancia.backend.shared.venue.core.exception.VenueSlotNotFoundException
 import com.fancia.backend.venue.core.entity.Venue
@@ -27,6 +28,7 @@ import com.fancia.backend.venue.core.repository.VenueAreaRepository
 import com.fancia.backend.venue.core.repository.VenueBookingRepository
 import com.fancia.backend.venue.core.repository.VenueRepository
 import com.fancia.backend.venue.core.repository.VenueSlotRepository
+import com.fancia.backend.venue.external.NotificationInternalClient
 import com.fancia.backend.venue.external.PaymentInternalClient
 import com.fancia.backend.venue.mapper.markPaid
 import com.fancia.backend.venue.mapper.toCheckoutSnapshot
@@ -50,6 +52,7 @@ class VenueBookingService(
     private val venueAreaRepository: VenueAreaRepository,
     private val venueAreaService: VenueAreaService,
     private val paymentInternalClient: PaymentInternalClient,
+    private val notificationInternalClient: NotificationInternalClient,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val openRequesterStatuses = setOf(
@@ -163,7 +166,7 @@ class VenueBookingService(
     @Transactional
     fun approve(venueId: UUID, bookingId: UUID, jwt: Jwt): VenueBookingResponse {
         val userId = jwt.userId()
-        requireOwnedVenue(venueId, userId)
+        val venue = requireOwnedVenue(venueId, userId)
         val booking = requireBooking(venueId, bookingId)
         val slot = booking.slot!!
         if (slot.status != VenueSlotStatus.PUBLISHED &&
@@ -179,6 +182,7 @@ class VenueBookingService(
             booking.status in hostAcceptableStatuses -> {
                 booking.status = VenueBookingStatus.ACCEPTED
                 venueBookingRepository.save(booking)
+                notifyBookingAccepted(booking, venue)
             }
             booking.status == VenueBookingStatus.ACCEPTED -> Unit
             else -> throw VenueBookingInvalidStateException(
@@ -412,6 +416,33 @@ class VenueBookingService(
 
     private fun requireVenue(venueId: UUID): Venue =
         venueRepository.findByIdOrNull(venueId) ?: throw VenueNotFoundException(venueId)
+
+    private fun notifyBookingAccepted(booking: VenueBooking, venue: Venue) {
+        val requesterUserId = booking.requesterUserId ?: return
+        val venueName = venue.name.takeIf { it.isNotBlank() } ?: "your venue"
+        try {
+            notificationInternalClient.sendPush(
+                SendPushNotificationRequest(
+                    userId = requesterUserId,
+                    title = "Booking approved",
+                    body = "Your booking at $venueName was approved",
+                    type = "VENUE_BOOKING_ACCEPTED",
+                    path = "/venues/${venue.id}",
+                    data = mapOf(
+                        "bookingId" to booking.id!!.toString(),
+                        "venueId" to venue.id!!.toString(),
+                    ),
+                ),
+            )
+        } catch (ex: Exception) {
+            log.warn(
+                "Failed to send venue booking approved push user={} booking={}",
+                requesterUserId,
+                booking.id,
+                ex,
+            )
+        }
+    }
 
     private fun requireOwnedVenue(venueId: UUID, userId: UUID): Venue {
         val venue = requireVenue(venueId)
