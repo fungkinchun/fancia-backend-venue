@@ -1,6 +1,7 @@
 package com.fancia.backend.venue.core.service
 
 import com.fancia.backend.shared.common.core.exception.InvalidAuthenticationException
+import com.fancia.backend.shared.common.core.enums.ResourceVisibility
 import com.fancia.backend.shared.common.core.utils.Slugify
 import com.fancia.backend.shared.common.social.core.entity.Link
 import com.fancia.backend.shared.common.tag.core.dto.CreateTagsRequest
@@ -123,6 +124,7 @@ class VenueService(
                     pageable,
                 )
                 .map { it.toDto() }
+                .let { page -> filterPublicBrowse(page, pageable) }
         }
         val trimmedName = name?.trim().orEmpty()
         val trimmedDescription = description?.trim().orEmpty()
@@ -155,7 +157,15 @@ class VenueService(
                     pageable,
                 )
         }
-        return venues.map { it.toDto() }
+        return filterPublicBrowse(venues.map { it.toDto() }, pageable)
+    }
+
+    private fun filterPublicBrowse(
+        page: Page<VenueResponse>,
+        pageable: Pageable,
+    ): Page<VenueResponse> {
+        val visible = page.content.filter { it.visibility == ResourceVisibility.PUBLIC }
+        return PageImpl(visible, pageable, page.totalElements)
     }
 
     fun findByIdAndCreatedBy(id: UUID, createdBy: UUID): Venue? {

@@ -1,5 +1,6 @@
 package com.fancia.backend.venue.mapper
 
+import com.fancia.backend.shared.common.core.enums.ResourceVisibility
 import com.fancia.backend.shared.common.social.core.dto.LinkResponse
 import com.fancia.backend.shared.common.social.core.entity.Link
 import com.fancia.backend.shared.venue.core.dto.*
@@ -18,16 +19,20 @@ fun Venue.toDto(): VenueResponse =
         tags = this@toDto.tags,
         links = this@toDto.links.map { it.toDto() }.toSet(),
         location = VenueLocationSupport.toDto(this@toDto),
+        visibility = this@toDto.visibility,
     )
 
 fun CreateVenueRequest.toEntity(): Venue =
     Venue().apply {
         name = this@toEntity.name
         description = this@toEntity.description
+        visibility = this@toEntity.visibility ?: ResourceVisibility.PUBLIC
     }
 
 fun UpdateVenueRequest.toEntity(venue: Venue): Venue {
+    venue.name = this@toEntity.name
     venue.description = this@toEntity.description
+    venue.visibility = this@toEntity.visibility ?: venue.visibility
     return venue
 }
 
@@ -41,6 +46,7 @@ fun VenueResponse.toEntity(): Venue =
         createdAt = this@toEntity.createdAt
         tags = this@toEntity.tags.toMutableSet()
         links = this@toEntity.links.map { Link(type = it.type, url = it.url) }.toMutableSet()
+        visibility = this@toEntity.visibility
     }
 
 fun VenueStaff.toDto(): VenueStaffResponse =
