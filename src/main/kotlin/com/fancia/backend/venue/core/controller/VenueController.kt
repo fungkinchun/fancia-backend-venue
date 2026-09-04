@@ -56,7 +56,7 @@ class VenueController(
         return ResponseEntity.ok(venueService.update(id, request, jwt))
     }
 
-    @GetMapping("/saved")
+    @GetMapping("/me/saved")
     @Operation(summary = "List venues saved by the current user")
     fun listSaved(
         @AuthenticationPrincipal jwt: Jwt,
