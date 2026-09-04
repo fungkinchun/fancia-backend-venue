@@ -35,15 +35,44 @@ class VenueService(
     private val venueRepository: VenueRepository,
     private val commonServiceClient: CommonServiceClient,
     private val venueBrowseConstraintResolver: VenueBrowseConstraintResolver,
+    private val savedResourceService: SavedResourceService,
 ) {
+    fun listSavedVenues(jwt: Jwt, pageable: Pageable): Page<VenueResponse> {
+        val page = savedResourceService.listSavedPage(jwt, pageable)
+        if (page.isEmpty) {
+            return PageImpl(emptyList(), pageable, 0)
+        }
+        val ids = page.content.map { it.id.resourceId }
+        val venuesById = venueRepository.findAllById(ids).associateBy { it.id }
+        val responses = ids.mapNotNull { id ->
+            val venue = venuesById[id] ?: return@mapNotNull null
+            venue.toDto().also {
+                it.savedByCurrentUser = true
+            }
+        }
+        return PageImpl(responses, pageable, page.totalElements)
+    }
+
     fun findById(id: UUID): VenueResponse {
         return venueRepository.findById(id)
             .map { it.toDto() }
             .orElseThrow { VenueNotFoundException(id) }
     }
 
-    fun findByIdOrSlug(ref: String): VenueResponse {
-        return resolveByIdOrSlug(ref).toDto()
+    fun findByIdOrSlug(ref: String, jwt: Jwt? = null): VenueResponse {
+        val response = resolveByIdOrSlug(ref).toDto()
+        enrichSaved(response, jwt)
+        return response
+    }
+
+    private fun enrichSaved(response: VenueResponse, jwt: Jwt?) {
+        val userId = jwt?.getClaimAsString("userId")?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+        val venueId = response.id
+        if (userId == null || venueId == null) {
+            response.savedByCurrentUser = null
+            return
+        }
+        response.savedByCurrentUser = savedResourceService.isSaved(userId, venueId)
     }
 
     fun resolveByIdOrSlug(ref: String): Venue {

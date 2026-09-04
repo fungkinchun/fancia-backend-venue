@@ -1,7 +1,9 @@
 package com.fancia.backend.venue.core.controller
 
 import com.fancia.backend.shared.venue.core.dto.*
+import com.fancia.backend.venue.core.service.SavedResourceService
 import com.fancia.backend.venue.core.service.VenueService
+import com.fancia.backend.shared.common.saved.core.dto.SavedResourceResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponse
@@ -13,6 +15,7 @@ import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.web.PageableDefault
 import org.springframework.format.annotation.DateTimeFormat
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.oauth2.jwt.Jwt
@@ -25,6 +28,7 @@ import java.util.*
 @SecurityRequirement(name = "bearerAuth")
 class VenueController(
     private val venueService: VenueService,
+    private val savedResourceService: SavedResourceService,
 ) {
     @Operation(
         summary = "Create venue",
@@ -52,10 +56,39 @@ class VenueController(
         return ResponseEntity.ok(venueService.update(id, request, jwt))
     }
 
+    @GetMapping("/saved")
+    @Operation(summary = "List venues saved by the current user")
+    fun listSaved(
+        @AuthenticationPrincipal jwt: Jwt,
+        @PageableDefault(size = 20) pageable: Pageable,
+    ): ResponseEntity<Page<VenueResponse>> =
+        ResponseEntity.ok(venueService.listSavedVenues(jwt, pageable))
+
+    @PostMapping("/{id}/saved")
+    @Operation(summary = "Save a venue")
+    fun saveVenue(
+        @PathVariable id: UUID,
+        @AuthenticationPrincipal jwt: Jwt,
+    ): ResponseEntity<SavedResourceResponse> =
+        ResponseEntity.status(HttpStatus.CREATED).body(savedResourceService.save(id, jwt))
+
+    @DeleteMapping("/{id}/saved")
+    @Operation(summary = "Unsave a venue")
+    fun unsaveVenue(
+        @PathVariable id: UUID,
+        @AuthenticationPrincipal jwt: Jwt,
+    ): ResponseEntity<Void> {
+        savedResourceService.unsave(id, jwt)
+        return ResponseEntity.noContent().build()
+    }
+
     @GetMapping("/{ref}")
     @Operation(summary = "Get venue by id or slug")
-    fun getVenue(@PathVariable ref: String): ResponseEntity<VenueResponse> {
-        return ResponseEntity.ok(venueService.findByIdOrSlug(ref))
+    fun getVenue(
+        @PathVariable ref: String,
+        @AuthenticationPrincipal jwt: Jwt?,
+    ): ResponseEntity<VenueResponse> {
+        return ResponseEntity.ok(venueService.findByIdOrSlug(ref, jwt))
     }
 
     @GetMapping
