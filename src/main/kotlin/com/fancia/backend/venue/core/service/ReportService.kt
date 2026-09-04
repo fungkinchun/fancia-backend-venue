@@ -10,7 +10,7 @@ import com.fancia.backend.shared.common.moderation.core.enums.BlockedResourceTyp
 import com.fancia.backend.shared.common.moderation.core.enums.ReportStatus
 import com.fancia.backend.shared.common.moderation.core.exception.UnsupportedBlockedResourceTypeException
 import com.fancia.backend.venue.core.repository.ReportRepository
-import com.fancia.backend.venue.external.UserBlockedClient
+import com.fancia.backend.venue.external.UserServiceClient
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -20,7 +20,7 @@ import java.util.UUID
 class ReportService(
     private val reportRepository: ReportRepository,
     private val blockedResourceService: BlockedResourceService,
-    private val userBlockedClient: UserBlockedClient,
+    private val userServiceClient: UserServiceClient,
 ) {
     @Transactional
     fun create(request: CreateReportRequest, jwt: Jwt): ReportResponse {
@@ -57,7 +57,7 @@ class ReportService(
                     message = "targetOwnerUserId is required when alsoBlockUser is true",
                     errorCode = "TARGET_OWNER_REQUIRED",
                 )
-            userBlockedClient.block(
+            userServiceClient.block(
                 CreateBlockedResourceRequest(
                     resourceType = BlockedResourceType.USER,
                     resourceId = ownerId,

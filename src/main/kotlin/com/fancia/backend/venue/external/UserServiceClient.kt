@@ -9,10 +9,10 @@ import org.springframework.web.bind.annotation.RequestBody
 
 @FeignClient(
     name = "user-service",
-    path = "/api/blocked",
+    path = "/api",
     configuration = [FeignConfig::class],
 )
-interface UserBlockedClient {
-    @PostMapping
+interface UserServiceClient {
+    @PostMapping("/blocked")
     fun block(@RequestBody request: CreateBlockedResourceRequest): BlockedResourceResponse
 }
