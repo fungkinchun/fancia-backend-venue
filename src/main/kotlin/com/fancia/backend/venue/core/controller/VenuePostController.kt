@@ -60,8 +60,9 @@ class VenuePostController(
         @Parameter(description = "Filter by post status (repeatable)")
         status: List<PostStatus>?,
         @PageableDefault(size = 20) pageable: Pageable,
+        @AuthenticationPrincipal jwt: Jwt?,
     ): ResponseEntity<Page<PostResponse>> {
-        return ResponseEntity.ok(venuePostService.list(venueId, kind, status, pageable))
+        return ResponseEntity.ok(venuePostService.list(venueId, kind, status, pageable, jwt))
     }
 
     @Operation(summary = "Get post on venue")
@@ -69,8 +70,9 @@ class VenuePostController(
     fun getPost(
         @PathVariable venueId: UUID,
         @PathVariable postId: UUID,
+        @AuthenticationPrincipal jwt: Jwt?,
     ): ResponseEntity<PostResponse> {
-        return ResponseEntity.ok(venuePostService.get(venueId, postId))
+        return ResponseEntity.ok(venuePostService.get(venueId, postId, jwt))
     }
 
     @Operation(summary = "Update post")
