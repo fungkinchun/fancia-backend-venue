@@ -86,6 +86,13 @@ class VenuePostService(
         return post
     }
 
+    fun delete(venueId: UUID, postId: UUID, jwt: Jwt) {
+        jwt.getClaimAsString("userId")?.let { UUID.fromString(it) }
+            ?: throw InvalidAuthenticationException()
+        get(venueId, postId, jwt)
+        commonInternalClient.deletePost(postId)
+    }
+
     fun like(venueId: UUID, postId: UUID, jwt: Jwt) {
         get(venueId, postId, jwt)
         commonInternalClient.likePost(postId)
