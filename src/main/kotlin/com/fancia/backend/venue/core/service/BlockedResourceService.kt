@@ -8,6 +8,9 @@ import com.fancia.backend.shared.common.moderation.core.entity.BlockedResourceId
 import com.fancia.backend.shared.common.moderation.core.enums.BlockedResourceType
 import com.fancia.backend.shared.common.moderation.core.exception.UnsupportedBlockedResourceTypeException
 import com.fancia.backend.venue.core.repository.BlockedResourceRepository
+import com.fancia.backend.venue.external.UserInternalClient
+import feign.FeignException
+import org.slf4j.LoggerFactory
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.security.oauth2.jwt.Jwt
@@ -18,7 +21,10 @@ import java.util.UUID
 @Service
 class BlockedResourceService(
     private val blockedResourceRepository: BlockedResourceRepository,
+    private val userInternalClient: UserInternalClient,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     @Transactional
     fun block(request: CreateBlockedResourceRequest, jwt: Jwt): BlockedResourceResponse {
         val userId = currentUserId(jwt)
@@ -58,6 +64,23 @@ class BlockedResourceService(
             blockedResourceRepository.findByIdUserIdAndIdResourceType(userId, resourceType, pageable)
         }
         return page.map { it.toResponse() }
+    }
+
+    fun loadCommentVisibilityBlocks(userId: UUID): Pair<Set<UUID>, Set<UUID>> {
+        return try {
+            val response = userInternalClient.getBlocked(
+                userId,
+                listOf(BlockedResourceType.COMMENT, BlockedResourceType.USER),
+            )
+            val blocked = response.blocked
+            Pair(
+                blocked[BlockedResourceType.COMMENT].orEmpty().toSet(),
+                blocked[BlockedResourceType.USER].orEmpty().toSet(),
+            )
+        } catch (ex: FeignException) {
+            log.warn("Failed to load blocked COMMENT/USER for userId={}", userId, ex)
+            Pair(emptySet(), emptySet())
+        }
     }
 
     private fun validateOwnedType(resourceType: BlockedResourceType) {

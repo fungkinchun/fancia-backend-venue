@@ -76,9 +76,10 @@ class VenueCommentController(
         targetId: UUID?,
         @PageableDefault(size = 20)
         pageable: Pageable,
+        @AuthenticationPrincipal jwt: Jwt?,
     ): ResponseEntity<Page<CommentResponse>> {
         val scope = resourceId ?: venueId
-        return ResponseEntity.ok(venueCommentService.list(scope, targetId ?: scope, pageable))
+        return ResponseEntity.ok(venueCommentService.list(scope, targetId ?: scope, pageable, jwt))
     }
 
     @Operation(summary = "Like comment")
