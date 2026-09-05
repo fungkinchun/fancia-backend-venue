@@ -19,6 +19,11 @@ interface BlockedResourceRepository : JpaRepository<BlockedResource, BlockedReso
         pageable: Pageable,
     ): Page<BlockedResource>
 
+    fun findAllByIdUserIdAndIdResourceTypeIn(
+        userId: UUID,
+        resourceTypes: Collection<BlockedResourceType>,
+    ): List<BlockedResource>
+
     fun deleteByIdUserIdAndIdResourceTypeAndIdResourceId(
         userId: UUID,
         resourceType: BlockedResourceType,

@@ -43,6 +43,7 @@ class VenueService(
     private val commonServiceClient: CommonServiceClient,
     private val venueBrowseConstraintResolver: VenueBrowseConstraintResolver,
     private val savedResourceService: SavedResourceService,
+    private val blockedResourceService: BlockedResourceService,
     private val redisQueryCache: ObjectProvider<RedisQueryCache>,
 ) {
     fun listSavedVenues(jwt: Jwt, pageable: Pageable): Page<VenueResponse> {
@@ -50,10 +51,16 @@ class VenueService(
         if (page.isEmpty) {
             return PageImpl(emptyList(), pageable, 0)
         }
+        val viewerId = jwt.getClaimAsString("userId")?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+        val blockedVenues = viewerId?.let { blockedResourceService.blockedVenueIds(it) }.orEmpty()
+        val blockedUsers = viewerId?.let { blockedResourceService.loadBlockedUserIds(it) }.orEmpty()
         val ids = page.content.map { it.id.resourceId }
         val venuesById = venueRepository.findAllById(ids).associateBy { it.id }
         val responses = ids.mapNotNull { id ->
+            if (id in blockedVenues) return@mapNotNull null
             val venue = venuesById[id] ?: return@mapNotNull null
+            val createdBy = venue.createdBy
+            if (createdBy != null && createdBy in blockedUsers) return@mapNotNull null
             venue.toDto().also {
                 it.savedByCurrentUser = true
             }
@@ -68,7 +75,9 @@ class VenueService(
     }
 
     fun findByIdOrSlug(ref: String, jwt: Jwt? = null): VenueResponse {
-        val response = resolveByIdOrSlug(ref).toDto()
+        val venue = resolveByIdOrSlug(ref)
+        assertNotBlocked(venue, jwt)
+        val response = venue.toDto()
         enrichSaved(response, jwt)
         return response
     }
@@ -291,6 +300,24 @@ class VenueService(
             .joinToString("-")
             .ifBlank { name }
         return Slugify.allocateUnique(base, fallback = "venue") { venueRepository.existsBySlug(it) }
+    }
+
+    private fun assertNotBlocked(venue: Venue, jwt: Jwt?) {
+        if (isBlockedForViewer(venue, jwt)) {
+            val venueId = venue.id ?: throw VenueNotFoundException(venue.slug)
+            throw VenueNotFoundException(venueId)
+        }
+    }
+
+    private fun isBlockedForViewer(venue: Venue, jwt: Jwt?): Boolean {
+        val viewerId = jwt?.getClaimAsString("userId")?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+            ?: return false
+        val venueId = venue.id
+        if (venueId != null && venueId in blockedResourceService.blockedVenueIds(viewerId)) {
+            return true
+        }
+        val createdBy = venue.createdBy ?: return false
+        return createdBy in blockedResourceService.loadBlockedUserIds(viewerId)
     }
 
     private data class VenueIdFilter(
