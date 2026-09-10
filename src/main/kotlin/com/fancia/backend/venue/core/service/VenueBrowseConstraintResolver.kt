@@ -1,7 +1,7 @@
 package com.fancia.backend.venue.core.service
 
 import com.fancia.backend.shared.venue.core.enums.VenueSlotStatus
-import com.fancia.backend.venue.core.repository.EventOccurrenceRepository
+import com.fancia.backend.shared.event.core.repository.EventOccurrenceRepository
 import com.fancia.backend.venue.core.repository.VenueSlotRepository
 import org.springframework.stereotype.Component
 import java.time.LocalDateTime

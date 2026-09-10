@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*
 import java.util.*
 
 @RestController
-@RequestMapping("/api/venues")
+@RequestMapping("/api/v1/venues")
 @Tag(name = "Venue Staff", description = "Venue staff endpoints")
 @SecurityRequirement(name = "bearerAuth")
 class VenueStaffController(

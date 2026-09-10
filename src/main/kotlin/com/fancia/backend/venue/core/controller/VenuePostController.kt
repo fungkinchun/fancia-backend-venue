@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.*
 import java.util.*
 
 @RestController
-@RequestMapping("/api/venues/{venueId}/posts")
+@RequestMapping("/api/v1/venues/{venueId}/posts")
 @Tag(name = "Venue Posts", description = "Posts on venues")
 @SecurityRequirement(name = "bearerAuth")
 class VenuePostController(

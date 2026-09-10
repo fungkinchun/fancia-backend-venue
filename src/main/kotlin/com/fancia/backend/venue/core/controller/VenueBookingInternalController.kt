@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
 
 @RestController
-@RequestMapping("/internal/venue-bookings")
+@RequestMapping("/internal/v1/venue-bookings")
 @Hidden
 class VenueBookingInternalController(
     private val venueBookingService: VenueBookingService,

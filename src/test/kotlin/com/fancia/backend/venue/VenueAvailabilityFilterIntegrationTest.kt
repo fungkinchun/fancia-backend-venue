@@ -48,7 +48,7 @@ class VenueAvailabilityFilterIntegrationTest(
     fun stubCreateTag() {
         configureFor(wiremock.host, wiremock.getMappedPort(8080))
         stubFor(
-            post(urlPathEqualTo("/api/tags"))
+            post(urlPathEqualTo("/api/v1/tags"))
                 .willReturn(
                     aResponse()
                         .withStatus(201)
@@ -70,7 +70,7 @@ class VenueAvailabilityFilterIntegrationTest(
 
     fun createVenue(ownerId: UUID, name: String): UUID {
         stubCreateTag()
-        val body = mockMvc.post("/api/venues") {
+        val body = mockMvc.post("/api/v1/venues") {
             with(jwtFor(ownerId))
             content = jsonMapper.writeValueAsString(
                 mapOf(
@@ -91,7 +91,7 @@ class VenueAvailabilityFilterIntegrationTest(
     }
 
     fun publishSlot(venueId: UUID, ownerId: UUID) {
-        val createBody = mockMvc.post("/api/venues/{venueId}/slots", venueId) {
+        val createBody = mockMvc.post("/api/v1/venues/{venueId}/slots", venueId) {
             with(jwtFor(ownerId))
             content = jsonMapper.writeValueAsString(
                 mapOf(
@@ -105,7 +105,7 @@ class VenueAvailabilityFilterIntegrationTest(
             accept = APPLICATION_JSON
         }.andExpect { status { isOk() } }.andReturn().response.contentAsString
         val slotId = jsonMapper.readTree(createBody).get("id").asText()
-        mockMvc.post("/api/venues/{venueId}/slots/{slotId}/publish", venueId, slotId) {
+        mockMvc.post("/api/v1/venues/{venueId}/slots/{slotId}/publish", venueId, slotId) {
             with(jwtFor(ownerId))
             accept = APPLICATION_JSON
         }.andExpect { status { isOk() } }
@@ -149,7 +149,7 @@ class VenueAvailabilityFilterIntegrationTest(
         createVenue(ownerId, "Empty Venue")
         publishSlot(withSlot, ownerId)
 
-        mockMvc.get("/api/venues?hasPublishedSlots=true&page=0&size=20") {
+        mockMvc.get("/api/v1/venues?hasPublishedSlots=true&page=0&size=20") {
             accept = APPLICATION_JSON
         }.andExpect {
             status { isOk() }
@@ -164,7 +164,7 @@ class VenueAvailabilityFilterIntegrationTest(
         createVenue(ownerId, "Quiet Venue")
         insertUpcomingEventAtVenue(withEvents, ownerId)
 
-        mockMvc.get("/api/venues?hasUpcomingEvents=true&page=0&size=20") {
+        mockMvc.get("/api/v1/venues?hasUpcomingEvents=true&page=0&size=20") {
             accept = APPLICATION_JSON
         }.andExpect {
             status { isOk() }
@@ -176,7 +176,7 @@ class VenueAvailabilityFilterIntegrationTest(
     test("should return empty page when availability filters match nothing") {
         createVenue(UUID.randomUUID(), "Lonely Venue")
 
-        mockMvc.get("/api/venues?hasPublishedSlots=true&page=0&size=20") {
+        mockMvc.get("/api/v1/venues?hasPublishedSlots=true&page=0&size=20") {
             accept = APPLICATION_JSON
         }.andExpect {
             status { isOk() }

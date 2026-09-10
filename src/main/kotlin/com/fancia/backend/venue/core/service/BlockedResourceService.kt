@@ -7,7 +7,7 @@ import com.fancia.backend.shared.common.moderation.core.entity.BlockedResource
 import com.fancia.backend.shared.common.moderation.core.entity.BlockedResourceId
 import com.fancia.backend.shared.common.moderation.core.enums.BlockedResourceType
 import com.fancia.backend.shared.common.moderation.core.exception.UnsupportedBlockedResourceTypeException
-import com.fancia.backend.venue.core.repository.BlockedResourceRepository
+import com.fancia.backend.shared.common.moderation.core.repository.BlockedResourceRepository
 import com.fancia.backend.venue.external.UserInternalClient
 import feign.FeignException
 import org.slf4j.LoggerFactory

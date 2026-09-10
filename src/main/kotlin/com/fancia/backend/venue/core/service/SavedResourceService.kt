@@ -5,7 +5,7 @@ import com.fancia.backend.shared.common.saved.core.dto.SavedResourceResponse
 import com.fancia.backend.shared.common.saved.core.entity.SavedResource
 import com.fancia.backend.shared.common.saved.core.entity.SavedResourceId
 import com.fancia.backend.shared.venue.core.exception.VenueNotFoundException
-import com.fancia.backend.venue.core.repository.SavedResourceRepository
+import com.fancia.backend.shared.common.saved.core.repository.SavedResourceRepository
 import com.fancia.backend.venue.core.repository.VenueRepository
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable

@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
 
 @RestController
-@RequestMapping("/api/venues/{venueId}/areas")
+@RequestMapping("/api/v1/venues/{venueId}/areas")
 @Tag(name = "Venue Areas", description = "Bookable areas defined on a venue and selected when booking a slot")
 class VenueAreaController(
     private val venueAreaService: VenueAreaService,

@@ -19,8 +19,8 @@ class SecurityConfiguration {
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http.authorizeHttpRequests { customizer ->
             customizer.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-            customizer.requestMatchers(HttpMethod.GET, "/internal/venue-bookings/*").permitAll()
-            customizer.requestMatchers(HttpMethod.POST, "/internal/venue-bookings/*/paid").permitAll()
+            customizer.requestMatchers(HttpMethod.GET, "/internal/v1/venue-bookings/*").permitAll()
+            customizer.requestMatchers(HttpMethod.POST, "/internal/v1/venue-bookings/*/paid").permitAll()
             customizer.requestMatchers("/api/blocked", "/api/blocked/**").authenticated()
             customizer.requestMatchers("/api/reports", "/api/reports/**").authenticated()
             customizer.requestMatchers(HttpMethod.GET, "/api/venues/me/saved").authenticated()

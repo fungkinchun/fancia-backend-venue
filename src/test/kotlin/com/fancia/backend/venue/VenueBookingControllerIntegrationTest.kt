@@ -54,7 +54,7 @@ class VenueBookingControllerIntegrationTest(
 
     fun stubCreateTag() {
         stubFor(
-            post(urlPathEqualTo("/api/tags"))
+            post(urlPathEqualTo("/api/v1/tags"))
                 .willReturn(
                     aResponse()
                         .withStatus(201)
@@ -76,7 +76,7 @@ class VenueBookingControllerIntegrationTest(
 
     fun stubPayoutReady(userId: UUID, ready: Boolean) {
         stubFor(
-            get(urlPathEqualTo("/internal/connect/accounts/$userId"))
+            get(urlPathEqualTo("/internal/v1/connect/accounts/$userId"))
                 .willReturn(
                     aResponse()
                         .withStatus(200)
@@ -101,7 +101,7 @@ class VenueBookingControllerIntegrationTest(
 
     fun createVenue(ownerId: UUID): UUID {
         stubCreateTag()
-        val body = mockMvc.post("/api/venues") {
+        val body = mockMvc.post("/api/v1/venues") {
             with(jwtFor(ownerId))
             content = jsonMapper.writeValueAsString(
                 mapOf(
@@ -128,7 +128,7 @@ class VenueBookingControllerIntegrationTest(
         start: String = "2030-06-01T10:00:00",
         end: String = "2030-06-01T12:00:00",
     ): UUID {
-        val createBody = mockMvc.post("/api/venues/{venueId}/slots", venueId) {
+        val createBody = mockMvc.post("/api/v1/venues/{venueId}/slots", venueId) {
             with(jwtFor(ownerId))
             content = jsonMapper.writeValueAsString(
                 mapOf(
@@ -148,7 +148,7 @@ class VenueBookingControllerIntegrationTest(
     }
 
     fun publishSlot(venueId: UUID, ownerId: UUID, slotId: UUID) {
-        mockMvc.post("/api/venues/{venueId}/slots/{slotId}/publish", venueId, slotId) {
+        mockMvc.post("/api/v1/venues/{venueId}/slots/{slotId}/publish", venueId, slotId) {
             with(jwtFor(ownerId))
             accept = APPLICATION_JSON
         }.andExpect {
@@ -175,7 +175,7 @@ class VenueBookingControllerIntegrationTest(
         val venueId = createVenue(ownerId)
         val slotId = createAndPublishSlot(venueId, ownerId, priceMinor = 0)
 
-        val bookingBody = mockMvc.post("/api/venues/{venueId}/bookings", venueId) {
+        val bookingBody = mockMvc.post("/api/v1/venues/{venueId}/bookings", venueId) {
             with(jwtFor(guestId))
             content = jsonMapper.writeValueAsString(mapOf("slotId" to slotId.toString()))
             contentType = APPLICATION_JSON
@@ -191,7 +191,7 @@ class VenueBookingControllerIntegrationTest(
 
         venueSlotRepository.findById(slotId).get().status.name shouldBe "BOOKED"
 
-        mockMvc.post("/api/venues/{venueId}/bookings/{bookingId}/approve", venueId, bookingId) {
+        mockMvc.post("/api/v1/venues/{venueId}/bookings/{bookingId}/approve", venueId, bookingId) {
             with(jwtFor(ownerId))
             accept = APPLICATION_JSON
         }.andExpect {
@@ -209,7 +209,7 @@ class VenueBookingControllerIntegrationTest(
         stubPayoutReady(ownerId, ready = true)
         val slotId = createDraftSlot(venueId, ownerId)
 
-        val vipBody = mockMvc.post("/api/venues/{venueId}/areas", venueId) {
+        val vipBody = mockMvc.post("/api/v1/venues/{venueId}/areas", venueId) {
             with(jwtFor(ownerId))
             content = jsonMapper.writeValueAsString(
                 mapOf("name" to "VIP", "priceMinor" to 12000, "currency" to "gbp", "capacity" to 200),
@@ -219,7 +219,7 @@ class VenueBookingControllerIntegrationTest(
         }.andExpect { status { isOk() } }.andReturn().response.contentAsString
         val vipAreaId = UUID.fromString(jsonMapper.readTree(vipBody).get("id").asText())
 
-        mockMvc.post("/api/venues/{venueId}/areas", venueId) {
+        mockMvc.post("/api/v1/venues/{venueId}/areas", venueId) {
             with(jwtFor(ownerId))
             content = jsonMapper.writeValueAsString(
                 mapOf("name" to "Standard", "priceMinor" to 4500, "currency" to "gbp", "capacity" to 5000),
@@ -230,7 +230,7 @@ class VenueBookingControllerIntegrationTest(
 
         publishSlot(venueId, ownerId, slotId)
 
-        mockMvc.post("/api/venues/{venueId}/bookings", venueId) {
+        mockMvc.post("/api/v1/venues/{venueId}/bookings", venueId) {
             with(jwtFor(guestId))
             content = jsonMapper.writeValueAsString(
                 mapOf("slotId" to slotId.toString(), "areaId" to vipAreaId.toString()),
@@ -255,7 +255,7 @@ class VenueBookingControllerIntegrationTest(
         val venueId = createVenue(ownerId)
         stubPayoutReady(ownerId, ready = true)
 
-        val areaBody = mockMvc.post("/api/venues/{venueId}/areas", venueId) {
+        val areaBody = mockMvc.post("/api/v1/venues/{venueId}/areas", venueId) {
             with(jwtFor(ownerId))
             content = jsonMapper.writeValueAsString(
                 mapOf("name" to "VIP", "priceMinor" to 0, "currency" to "gbp", "capacity" to 1),
@@ -280,7 +280,7 @@ class VenueBookingControllerIntegrationTest(
             end = "2030-08-01T13:00:00",
         )
 
-        mockMvc.post("/api/venues/{venueId}/bookings", venueId) {
+        mockMvc.post("/api/v1/venues/{venueId}/bookings", venueId) {
             with(jwtFor(guestA))
             content = jsonMapper.writeValueAsString(
                 mapOf("slotId" to slotA.toString(), "areaId" to areaId.toString()),
@@ -292,7 +292,7 @@ class VenueBookingControllerIntegrationTest(
             jsonPath("$.status", `is`("PAID"))
         }
 
-        mockMvc.post("/api/venues/{venueId}/bookings", venueId) {
+        mockMvc.post("/api/v1/venues/{venueId}/bookings", venueId) {
             with(jwtFor(guestB))
             content = jsonMapper.writeValueAsString(
                 mapOf("slotId" to slotB.toString(), "areaId" to areaId.toString()),
@@ -312,7 +312,7 @@ class VenueBookingControllerIntegrationTest(
         val venueId = createVenue(ownerId)
         stubPayoutReady(ownerId, ready = true)
 
-        val areaBody = mockMvc.post("/api/venues/{venueId}/areas", venueId) {
+        val areaBody = mockMvc.post("/api/v1/venues/{venueId}/areas", venueId) {
             with(jwtFor(ownerId))
             content = jsonMapper.writeValueAsString(
                 mapOf("name" to "VIP", "priceMinor" to 0, "currency" to "gbp", "capacity" to 1),
@@ -337,7 +337,7 @@ class VenueBookingControllerIntegrationTest(
             end = "2030-08-02T14:00:00",
         )
 
-        mockMvc.post("/api/venues/{venueId}/bookings", venueId) {
+        mockMvc.post("/api/v1/venues/{venueId}/bookings", venueId) {
             with(jwtFor(guestA))
             content = jsonMapper.writeValueAsString(
                 mapOf("slotId" to slotA.toString(), "areaId" to areaId.toString()),
@@ -346,7 +346,7 @@ class VenueBookingControllerIntegrationTest(
             accept = APPLICATION_JSON
         }.andExpect { status { isOk() } }
 
-        mockMvc.post("/api/venues/{venueId}/bookings", venueId) {
+        mockMvc.post("/api/v1/venues/{venueId}/bookings", venueId) {
             with(jwtFor(guestB))
             content = jsonMapper.writeValueAsString(
                 mapOf("slotId" to slotB.toString(), "areaId" to areaId.toString()),
@@ -364,7 +364,7 @@ class VenueBookingControllerIntegrationTest(
         val venueId = createVenue(ownerId)
         stubPayoutReady(ownerId, ready = false)
 
-        val createBody = mockMvc.post("/api/venues/{venueId}/slots", venueId) {
+        val createBody = mockMvc.post("/api/v1/venues/{venueId}/slots", venueId) {
             with(jwtFor(ownerId))
             content = jsonMapper.writeValueAsString(
                 mapOf(
@@ -379,7 +379,7 @@ class VenueBookingControllerIntegrationTest(
         }.andExpect { status { isOk() } }.andReturn().response.contentAsString
         val slotId = UUID.fromString(jsonMapper.readTree(createBody).get("id").asText())
 
-        mockMvc.post("/api/venues/{venueId}/slots/{slotId}/publish", venueId, slotId) {
+        mockMvc.post("/api/v1/venues/{venueId}/slots/{slotId}/publish", venueId, slotId) {
             with(jwtFor(ownerId))
             accept = APPLICATION_JSON
         }.andExpect {
@@ -395,7 +395,7 @@ class VenueBookingControllerIntegrationTest(
         stubPayoutReady(ownerId, ready = true)
         val slotId = createAndPublishSlot(venueId, ownerId, priceMinor = 5000)
 
-        val bookingBody = mockMvc.post("/api/venues/{venueId}/bookings", venueId) {
+        val bookingBody = mockMvc.post("/api/v1/venues/{venueId}/bookings", venueId) {
             with(jwtFor(guestId))
             content = jsonMapper.writeValueAsString(mapOf("slotId" to slotId.toString()))
             contentType = APPLICATION_JSON
@@ -407,7 +407,7 @@ class VenueBookingControllerIntegrationTest(
         }.andReturn().response.contentAsString
         val bookingId = UUID.fromString(jsonMapper.readTree(bookingBody).get("id").asText())
 
-        mockMvc.post("/api/venues/{venueId}/bookings/{bookingId}/approve", venueId, bookingId) {
+        mockMvc.post("/api/v1/venues/{venueId}/bookings/{bookingId}/approve", venueId, bookingId) {
             with(jwtFor(ownerId))
             accept = APPLICATION_JSON
         }.andExpect {
@@ -415,7 +415,7 @@ class VenueBookingControllerIntegrationTest(
             jsonPath("$.errorCode", `is`("VENUE_BOOKING_INVALID_STATE"))
         }
 
-        mockMvc.post("/internal/venue-bookings/{bookingId}/paid", bookingId) {
+        mockMvc.post("/internal/v1/venue-bookings/{bookingId}/paid", bookingId) {
             content = jsonMapper.writeValueAsString(mapOf("checkoutSessionId" to "cs_test_123"))
             contentType = APPLICATION_JSON
             accept = APPLICATION_JSON
@@ -426,7 +426,7 @@ class VenueBookingControllerIntegrationTest(
 
         venueSlotRepository.findById(slotId).get().status.name shouldBe "BOOKED"
 
-        mockMvc.post("/api/venues/{venueId}/bookings/{bookingId}/approve", venueId, bookingId) {
+        mockMvc.post("/api/v1/venues/{venueId}/bookings/{bookingId}/approve", venueId, bookingId) {
             with(jwtFor(ownerId))
             accept = APPLICATION_JSON
         }.andExpect {
@@ -434,7 +434,7 @@ class VenueBookingControllerIntegrationTest(
             jsonPath("$.status", `is`("ACCEPTED"))
         }
 
-        mockMvc.get("/api/venues/{venueId}/bookings/{bookingId}", venueId, bookingId) {
+        mockMvc.get("/api/v1/venues/{venueId}/bookings/{bookingId}", venueId, bookingId) {
             accept = APPLICATION_JSON
         }.andExpect {
             status { isOk() }
@@ -449,7 +449,7 @@ class VenueBookingControllerIntegrationTest(
         stubPayoutReady(ownerId, ready = true)
         val slotId = createAndPublishSlot(venueId, ownerId, priceMinor = 5000)
 
-        val bookingBody = mockMvc.post("/api/venues/{venueId}/bookings", venueId) {
+        val bookingBody = mockMvc.post("/api/v1/venues/{venueId}/bookings", venueId) {
             with(jwtFor(guestId))
             content = jsonMapper.writeValueAsString(mapOf("slotId" to slotId.toString()))
             contentType = APPLICATION_JSON
@@ -458,7 +458,7 @@ class VenueBookingControllerIntegrationTest(
         val bookingId = UUID.fromString(jsonMapper.readTree(bookingBody).get("id").asText())
 
         stubFor(
-            post(urlPathEqualTo("/internal/checkout/sessions"))
+            post(urlPathEqualTo("/internal/v1/checkout/sessions"))
                 .willReturn(
                     aResponse()
                         .withStatus(200)
@@ -478,7 +478,7 @@ class VenueBookingControllerIntegrationTest(
                 ),
         )
 
-        mockMvc.post("/api/venues/{venueId}/bookings/{bookingId}/checkout", venueId, bookingId) {
+        mockMvc.post("/api/v1/venues/{venueId}/bookings/{bookingId}/checkout", venueId, bookingId) {
             with(jwtFor(guestId))
             content = jsonMapper.writeValueAsString(
                 mapOf(
@@ -502,7 +502,7 @@ class VenueBookingControllerIntegrationTest(
         val venueId = createVenue(ownerId)
         val slotId = createAndPublishSlot(venueId, ownerId, priceMinor = 0)
 
-        val bookingBody = mockMvc.post("/api/venues/{venueId}/bookings", venueId) {
+        val bookingBody = mockMvc.post("/api/v1/venues/{venueId}/bookings", venueId) {
             with(jwtFor(guestId))
             content = jsonMapper.writeValueAsString(mapOf("slotId" to slotId.toString()))
             contentType = APPLICATION_JSON
@@ -510,7 +510,7 @@ class VenueBookingControllerIntegrationTest(
         }.andExpect { status { isOk() } }.andReturn().response.contentAsString
         val bookingId = UUID.fromString(jsonMapper.readTree(bookingBody).get("id").asText())
 
-        mockMvc.post("/api/venues/{venueId}/bookings/{bookingId}/withdraw", venueId, bookingId) {
+        mockMvc.post("/api/v1/venues/{venueId}/bookings/{bookingId}/withdraw", venueId, bookingId) {
             with(jwtFor(guestId))
             accept = APPLICATION_JSON
         }.andExpect {

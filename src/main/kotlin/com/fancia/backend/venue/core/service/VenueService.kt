@@ -4,6 +4,9 @@ import tools.jackson.core.type.TypeReference
 import com.fancia.backend.shared.common.core.exception.InvalidAuthenticationException
 import com.fancia.backend.shared.common.core.enums.ResourceVisibility
 import com.fancia.backend.shared.common.core.utils.Slugify
+import com.fancia.backend.shared.common.rating.core.enums.RatedResourceType
+import com.fancia.backend.shared.common.rating.core.repository.ResourceRatingRepository
+import com.fancia.backend.shared.common.rating.core.support.loadEnrichment
 import com.fancia.backend.shared.common.social.core.entity.Link
 import com.fancia.backend.shared.common.tag.core.dto.CreateTagsRequest
 import com.fancia.backend.shared.common.tag.core.dto.TagItemRequest
@@ -44,6 +47,7 @@ class VenueService(
     private val venueBrowseConstraintResolver: VenueBrowseConstraintResolver,
     private val savedResourceService: SavedResourceService,
     private val blockedResourceService: BlockedResourceService,
+    private val resourceRatingRepository: ResourceRatingRepository,
     private val redisQueryCache: ObjectProvider<RedisQueryCache>,
 ) {
     fun listSavedVenues(jwt: Jwt, pageable: Pageable): Page<VenueResponse> {
@@ -79,6 +83,7 @@ class VenueService(
         assertNotBlocked(venue, jwt)
         val response = venue.toDto()
         enrichSaved(response, jwt)
+        enrichRating(response, jwt)
         return response
     }
 
@@ -90,6 +95,15 @@ class VenueService(
             return
         }
         response.savedByCurrentUser = savedResourceService.isSaved(userId, venueId)
+    }
+
+    private fun enrichRating(response: VenueResponse, jwt: Jwt?) {
+        val venueId = response.id ?: return
+        val userId = jwt?.getClaimAsString("userId")?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+        val enrichment = resourceRatingRepository.loadEnrichment(RatedResourceType.VENUE, venueId, userId)
+        response.averageRating = enrichment.averageRating
+        response.ratingCount = enrichment.ratingCount
+        response.currentUserRating = enrichment.currentUserRating
     }
 
     fun resolveByIdOrSlug(ref: String): Venue {

@@ -43,7 +43,7 @@ class VenueCommentControllerIntegrationTest(
 
     fun createVenueViaApi(userId: UUID): UUID {
         stubFor(
-            post(urlPathEqualTo("/api/tags"))
+            post(urlPathEqualTo("/api/v1/tags"))
                 .willReturn(
                     aResponse()
                         .withStatus(201)
@@ -62,7 +62,7 @@ class VenueCommentControllerIntegrationTest(
                 )
         )
         val responseBody = mockMvc
-            .post("/api/venues") {
+            .post("/api/v1/venues") {
                 with(jwt().jwt { it.claim("userId", userId) })
                 content = jsonMapper.writeValueAsString(
                     mapOf(
@@ -100,7 +100,7 @@ class VenueCommentControllerIntegrationTest(
             createdAt = null,
         )
         stubFor(
-            post(urlPathEqualTo("/internal/comments"))
+            post(urlPathEqualTo("/internal/v1/comments"))
                 .willReturn(
                     aResponse()
                         .withStatus(201)
@@ -110,7 +110,7 @@ class VenueCommentControllerIntegrationTest(
         )
 
         mockMvc
-            .post("/api/venues/$venueId/comments") {
+            .post("/api/v1/venues/$venueId/comments") {
                 with(jwt().jwt { it.claim("userId", userId) })
                 content = jsonMapper.writeValueAsString(
                     mapOf(
@@ -130,7 +130,7 @@ class VenueCommentControllerIntegrationTest(
             }
 
         verify(
-            postRequestedFor(urlPathEqualTo("/internal/comments"))
+            postRequestedFor(urlPathEqualTo("/internal/v1/comments"))
                 .withRequestBody(matchingJsonPath("$.targetId", equalTo(venueId.toString())))
                 .withRequestBody(matchingJsonPath("$.resourceId", equalTo(venueId.toString())))
                 .withRequestBody(matchingJsonPath("$.body", equalTo("Hello venue"))),
@@ -148,7 +148,7 @@ class VenueCommentControllerIntegrationTest(
             "number" to 0,
         )
         stubFor(
-            get(urlPathEqualTo("/internal/comments"))
+            get(urlPathEqualTo("/internal/v1/comments"))
                 .withQueryParam("targetId", equalTo(venueId.toString()))
                 .withQueryParam("resourceId", equalTo(venueId.toString()))
                 .willReturn(
@@ -160,14 +160,14 @@ class VenueCommentControllerIntegrationTest(
         )
 
         mockMvc
-            .get("/api/venues/$venueId/comments") {
+            .get("/api/v1/venues/$venueId/comments") {
                 with(jwt().jwt { it.claim("userId", userId) })
                 accept = APPLICATION_JSON
             }
             .andExpect { status { isOk() } }
 
         verify(
-            getRequestedFor(urlPathEqualTo("/internal/comments"))
+            getRequestedFor(urlPathEqualTo("/internal/v1/comments"))
                 .withQueryParam("targetId", equalTo(venueId.toString()))
                 .withQueryParam("resourceId", equalTo(venueId.toString())),
         )
@@ -185,7 +185,7 @@ class VenueCommentControllerIntegrationTest(
             "number" to 0,
         )
         stubFor(
-            get(urlPathEqualTo("/internal/comments"))
+            get(urlPathEqualTo("/internal/v1/comments"))
                 .withQueryParam("targetId", equalTo(postId.toString()))
                 .withQueryParam("resourceId", equalTo(postId.toString()))
                 .willReturn(
@@ -197,7 +197,7 @@ class VenueCommentControllerIntegrationTest(
         )
 
         mockMvc
-            .get("/api/venues/$venueId/comments") {
+            .get("/api/v1/venues/$venueId/comments") {
                 with(jwt().jwt { it.claim("userId", userId) })
                 param("resourceId", postId.toString())
                 accept = APPLICATION_JSON
@@ -205,7 +205,7 @@ class VenueCommentControllerIntegrationTest(
             .andExpect { status { isOk() } }
 
         verify(
-            getRequestedFor(urlPathEqualTo("/internal/comments"))
+            getRequestedFor(urlPathEqualTo("/internal/v1/comments"))
                 .withQueryParam("targetId", equalTo(postId.toString()))
                 .withQueryParam("resourceId", equalTo(postId.toString())),
         )
@@ -223,7 +223,7 @@ class VenueCommentControllerIntegrationTest(
             "number" to 0,
         )
         stubFor(
-            get(urlPathEqualTo("/internal/comments"))
+            get(urlPathEqualTo("/internal/v1/comments"))
                 .withQueryParam("targetId", equalTo(parentCommentId.toString()))
                 .withQueryParam("resourceId", equalTo(venueId.toString()))
                 .willReturn(
@@ -235,7 +235,7 @@ class VenueCommentControllerIntegrationTest(
         )
 
         mockMvc
-            .get("/api/venues/$venueId/comments") {
+            .get("/api/v1/venues/$venueId/comments") {
                 with(jwt().jwt { it.claim("userId", userId) })
                 param("targetId", parentCommentId.toString())
                 accept = APPLICATION_JSON
@@ -243,7 +243,7 @@ class VenueCommentControllerIntegrationTest(
             .andExpect { status { isOk() } }
 
         verify(
-            getRequestedFor(urlPathEqualTo("/internal/comments"))
+            getRequestedFor(urlPathEqualTo("/internal/v1/comments"))
                 .withQueryParam("targetId", equalTo(parentCommentId.toString()))
                 .withQueryParam("resourceId", equalTo(venueId.toString())),
         )
@@ -263,7 +263,7 @@ class VenueCommentControllerIntegrationTest(
             createdAt = null,
         )
         stubFor(
-            get(urlPathEqualTo("/internal/comments/$commentId"))
+            get(urlPathEqualTo("/internal/v1/comments/$commentId"))
                 .willReturn(
                     aResponse()
                         .withStatus(200)
@@ -272,18 +272,18 @@ class VenueCommentControllerIntegrationTest(
                 )
         )
         stubFor(
-            post(urlPathEqualTo("/internal/comments/$commentId/likes"))
+            post(urlPathEqualTo("/internal/v1/comments/$commentId/likes"))
                 .willReturn(aResponse().withStatus(204))
         )
 
         mockMvc
-            .post("/api/venues/$venueId/comments/$commentId/likes") {
+            .post("/api/v1/venues/$venueId/comments/$commentId/likes") {
                 with(jwt().jwt { it.claim("userId", userId) })
                 param("resourceId", postId.toString())
             }
             .andExpect { status { isNoContent() } }
 
-        verify(postRequestedFor(urlPathEqualTo("/internal/comments/$commentId/likes")))
+        verify(postRequestedFor(urlPathEqualTo("/internal/v1/comments/$commentId/likes")))
     }
 
     test("should forward unlike to common-internal") {
@@ -299,7 +299,7 @@ class VenueCommentControllerIntegrationTest(
             createdAt = null,
         )
         stubFor(
-            get(urlPathEqualTo("/internal/comments/$commentId"))
+            get(urlPathEqualTo("/internal/v1/comments/$commentId"))
                 .willReturn(
                     aResponse()
                         .withStatus(200)
@@ -308,17 +308,17 @@ class VenueCommentControllerIntegrationTest(
                 )
         )
         stubFor(
-            delete(urlPathEqualTo("/internal/comments/$commentId/likes"))
+            delete(urlPathEqualTo("/internal/v1/comments/$commentId/likes"))
                 .willReturn(aResponse().withStatus(204))
         )
 
         mockMvc
-            .delete("/api/venues/$venueId/comments/$commentId/likes") {
+            .delete("/api/v1/venues/$venueId/comments/$commentId/likes") {
                 with(jwt().jwt { it.claim("userId", userId) })
             }
             .andExpect { status { isNoContent() } }
 
-        verify(deleteRequestedFor(urlPathEqualTo("/internal/comments/$commentId/likes")))
+        verify(deleteRequestedFor(urlPathEqualTo("/internal/v1/comments/$commentId/likes")))
     }
 
     afterSpec {

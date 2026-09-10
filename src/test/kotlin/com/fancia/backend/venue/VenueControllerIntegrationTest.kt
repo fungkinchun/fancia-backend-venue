@@ -45,7 +45,7 @@ class VenueControllerIntegrationTest(
     fun stubCreateTag(name: String): UUID {
         val tagId = UUID.randomUUID()
         stubFor(
-            post(urlPathEqualTo("/api/tags"))
+            post(urlPathEqualTo("/api/v1/tags"))
                 .willReturn(
                     aResponse()
                         .withStatus(201)
@@ -76,7 +76,7 @@ class VenueControllerIntegrationTest(
         stubCreateTag("good")
         val testUserId = UUID.randomUUID()
         val response = mockMvc
-            .post("/api/venues") {
+            .post("/api/v1/venues") {
                 with(jwt().jwt {
                     it.claim("userId", testUserId)
                 })
@@ -120,7 +120,7 @@ class VenueControllerIntegrationTest(
         val testUserId = UUID.randomUUID()
         val longName = "a".repeat(256)
         mockMvc
-            .post("/api/venues") {
+            .post("/api/v1/venues") {
                 with(jwt().jwt {
                     it.claim("userId", testUserId)
                 })
@@ -147,7 +147,7 @@ class VenueControllerIntegrationTest(
         val venue = venueRepository.findAll().first { it.name == "testVenue" }
         val tagId = venue.tags.first()
         mockMvc
-            .get("/api/venues?tagIds=$tagId&page=0&size=3") {
+            .get("/api/v1/venues?tagIds=$tagId&page=0&size=3") {
                 accept = APPLICATION_JSON
             }
             .andDo { print() }
@@ -162,7 +162,7 @@ class VenueControllerIntegrationTest(
 
     test("should not list venues because of wrong tag") {
         mockMvc
-            .get("/api/venues?tagIds=${UUID.randomUUID()}&page=0&size=3") {
+            .get("/api/v1/venues?tagIds=${UUID.randomUUID()}&page=0&size=3") {
                 accept = APPLICATION_JSON
             }
             .andDo { print() }
@@ -175,7 +175,7 @@ class VenueControllerIntegrationTest(
     test("should get venue by id and by slug") {
         val venue = venueRepository.findAll().first { it.name == "testVenue" }
         mockMvc
-            .get("/api/venues/${venue.id}") {
+            .get("/api/v1/venues/${venue.id}") {
                 accept = APPLICATION_JSON
             }
             .andExpect {
@@ -183,7 +183,7 @@ class VenueControllerIntegrationTest(
                 jsonPath("$.slug", `is`("testvenue"))
             }
         mockMvc
-            .get("/api/venues/${venue.slug}") {
+            .get("/api/v1/venues/${venue.slug}") {
                 accept = APPLICATION_JSON
             }
             .andExpect {

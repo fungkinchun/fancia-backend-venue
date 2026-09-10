@@ -9,7 +9,7 @@ import com.fancia.backend.shared.common.moderation.core.entity.Report
 import com.fancia.backend.shared.common.moderation.core.enums.BlockedResourceType
 import com.fancia.backend.shared.common.moderation.core.enums.ReportStatus
 import com.fancia.backend.shared.common.moderation.core.exception.UnsupportedBlockedResourceTypeException
-import com.fancia.backend.venue.core.repository.ReportRepository
+import com.fancia.backend.shared.common.moderation.core.repository.ReportRepository
 import com.fancia.backend.venue.external.UserServiceClient
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.stereotype.Service

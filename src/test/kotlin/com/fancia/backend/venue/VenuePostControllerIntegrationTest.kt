@@ -46,7 +46,7 @@ class VenuePostControllerIntegrationTest(
 
     fun createVenueViaApi(userId: UUID): UUID {
         stubFor(
-            post(urlPathEqualTo("/api/tags"))
+            post(urlPathEqualTo("/api/v1/tags"))
                 .willReturn(
                     aResponse()
                         .withStatus(201)
@@ -65,7 +65,7 @@ class VenuePostControllerIntegrationTest(
                 )
         )
         val responseBody = mockMvc
-            .post("/api/venues") {
+            .post("/api/v1/venues") {
                 with(jwt().jwt { it.claim("userId", userId) })
                 content = jsonMapper.writeValueAsString(
                     mapOf(
@@ -115,7 +115,7 @@ class VenuePostControllerIntegrationTest(
             createdAt = null,
         )
         stubFor(
-            post(urlPathEqualTo("/internal/posts"))
+            post(urlPathEqualTo("/internal/v1/posts"))
                 .willReturn(
                     aResponse()
                         .withStatus(201)
@@ -138,7 +138,7 @@ class VenuePostControllerIntegrationTest(
             "status" to "FEATURED",
         )
         val responseBody = mockMvc
-            .post("/api/venues/$venueId/posts") {
+            .post("/api/v1/venues/$venueId/posts") {
                 with(jwt().jwt { it.claim("userId", userId) })
                 content = jsonMapper.writeValueAsString(requestBody)
                 contentType = APPLICATION_JSON
@@ -159,13 +159,13 @@ class VenuePostControllerIntegrationTest(
         response.status shouldBe PostStatus.FEATURED
 
         verify(
-            postRequestedFor(urlPathEqualTo("/internal/posts"))
+            postRequestedFor(urlPathEqualTo("/internal/v1/posts"))
                 .withRequestBody(matchingJsonPath("$.targetId", equalTo(venueId.toString())))
                 .withRequestBody(matchingJsonPath("$.authorUserId", equalTo(userId.toString())))
                 .withRequestBody(matchingJsonPath("$.status", equalTo("FEATURED")))
                 .withRequestBody(matchingJsonPath("$.media.length()", equalTo("2"))),
         )
-        val forwardedBody = findAll(postRequestedFor(urlPathEqualTo("/internal/posts"))).single().bodyAsString
+        val forwardedBody = findAll(postRequestedFor(urlPathEqualTo("/internal/v1/posts"))).single().bodyAsString
         val forwardedJson = jsonMapper.readTree(forwardedBody)
         forwardedJson.has("featured") shouldBe false
         forwardedJson.has("pinned") shouldBe false
@@ -178,7 +178,7 @@ class VenuePostControllerIntegrationTest(
         val nonStaffId = UUID.randomUUID()
 
         mockMvc
-            .post("/api/venues/$venueId/posts") {
+            .post("/api/v1/venues/$venueId/posts") {
                 with(jwt().jwt { it.claim("userId", nonStaffId) })
                 content = jsonMapper.writeValueAsString(
                     mapOf(
@@ -194,7 +194,7 @@ class VenuePostControllerIntegrationTest(
                 status { isBadRequest() }
             }
 
-        verify(0, postRequestedFor(urlPathEqualTo("/internal/posts")))
+        verify(0, postRequestedFor(urlPathEqualTo("/internal/v1/posts")))
     }
 
     test("should return not found when venue does not exist") {
@@ -202,7 +202,7 @@ class VenuePostControllerIntegrationTest(
         val userId = UUID.randomUUID()
 
         mockMvc
-            .post("/api/venues/$missingVenueId/posts") {
+            .post("/api/v1/venues/$missingVenueId/posts") {
                 with(jwt().jwt { it.claim("userId", userId) })
                 content = jsonMapper.writeValueAsString(
                     mapOf(
@@ -218,7 +218,7 @@ class VenuePostControllerIntegrationTest(
                 status { isBadRequest() }
             }
 
-        verify(0, postRequestedFor(urlPathEqualTo("/internal/posts")))
+        verify(0, postRequestedFor(urlPathEqualTo("/internal/v1/posts")))
     }
 
     afterSpec {
