@@ -52,6 +52,8 @@ interface VenueRepository : JpaRepository<Venue, UUID> {
 
     fun findByIdAndCreatedBy(@Param("id") id: UUID, @Param("createdBy") createdBy: UUID): Venue?
 
+    fun findByCreatedBy(createdBy: UUID): List<Venue>
+
     @Query("SELECT v FROM Venue v WHERE :tagId MEMBER OF v.tags")
     fun findByTagId(@Param("tagId") tagId: UUID): List<Venue>
 
